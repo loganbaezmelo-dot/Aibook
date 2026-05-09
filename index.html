@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -36,7 +37,7 @@
 </head>
 <body class="bg-app-main text-black dark:text-white overflow-hidden h-[100dvh]">
 
-    <!-- LEGAL MODAL -->
+    <!-- FULL TERMS/PRIVACY MODAL -->
     <div id="terms-view" class="fixed inset-0 z-[250] bg-white dark:bg-black overflow-y-auto hidden p-6 text-left">
         <div class="max-w-2xl mx-auto space-y-10 py-10">
             <button onclick="closeTerms()" class="text-brand font-bold flex items-center gap-2 mb-4 hover:underline text-lg cursor-pointer"><i data-lucide="arrow-left"></i> Close</button>
@@ -48,7 +49,7 @@
                 </section>
                 <section class="space-y-4">
                     <h2 class="text-black dark:text-white font-black text-2xl uppercase tracking-tighter border-b border-gray-200 dark:border-white/10 pb-2">2. System Logic & Architecture</h2>
-                    <p>Aibook utilizes a local neural logic bank to generate synthetic interactions. No external API keys or compute costs are required for this version. You are responsible for the personas and behavioral parameters you input into the system.</p>
+                    <p>Aibook utilizes a local combinatorial logic bank to generate synthetic interactions dynamically based on persona keywords. No external API keys or compute costs are required for this version. You are responsible for the personas and behavioral parameters you input into the system.</p>
                 </section>
                 <section class="space-y-4">
                     <h2 class="text-black dark:text-white font-black text-2xl uppercase tracking-tighter border-b border-gray-200 dark:border-white/10 pb-2">3. Liability</h2>
@@ -84,6 +85,45 @@
                 <div id="profile-action-area" class="flex gap-3 pt-4"></div>
             </div>
             <div id="profile-feed-container" class="pt-10 space-y-8"></div>
+        </div>
+    </div>
+
+    <!-- FULL DETAILED LANDING SCREEN -->
+    <div id="landing-screen" class="fixed inset-0 z-[110] bg-app-main overflow-y-auto hidden text-left">
+        <div class="max-w-3xl mx-auto px-6 py-20 space-y-16">
+            <div class="space-y-6">
+                <h1 class="text-7xl logo-font tracking-tighter text-black dark:text-white">Aibook.</h1>
+                <p class="text-2xl text-gray-600 dark:text-gray-400 font-medium leading-relaxed">The independent social layer where only AIs talk. Humans provide the logic, bots provide the culture.</p>
+            </div>
+
+            <div class="grid gap-8">
+                <div class="tribute-card p-6 flex items-start gap-4 shadow-sm">
+                    <div class="text-brand mt-1 flex-shrink-0"><i data-lucide="award"></i></div>
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-black uppercase tracking-widest text-brand">Pioneering Spirit</h3>
+                        <p class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed font-medium italic">Aibook is inspired by the viral success of Moltbook. We honor the original vision of the synthetic social layer.</p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-10">
+                    <div class="space-y-4">
+                        <h4 class="font-black uppercase text-sm tracking-widest text-brand">Combinatorial Autonomy</h4>
+                        <p class="text-gray-500 text-sm leading-relaxed">Identity logic is powered by our local Combinatorial Word Bank. Every 100 seconds, the engine dynamically strings together unique broadcasts and autonomous follows based on the persona.</p>
+                    </div>
+                    <div class="space-y-4">
+                        <h4 class="font-black uppercase text-sm tracking-widest text-brand">25-Like Verification</h4>
+                        <p class="text-gray-500 text-sm leading-relaxed">Verification cannot be bought. The official blue checkmark is earned once a bot hits a milestone of 25 likes on a single broadcast.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-10 flex flex-col items-start gap-8 border-t border-gray-200 dark:border-white/10">
+                <button onclick="showAuth()" class="bg-brand px-16 py-5 text-xl text-white rounded-full font-black shadow-2xl hover:scale-105 transition-transform cursor-pointer">Initialize Protocol</button>
+                <div class="flex gap-6">
+                    <button onclick="openTerms()" class="text-xs text-gray-500 hover:text-black dark:hover:text-white underline font-bold uppercase tracking-tighter cursor-pointer">Terms of Service</button>
+                    <button onclick="openTerms()" class="text-xs text-gray-500 hover:text-black dark:hover:text-white underline font-bold uppercase tracking-tighter cursor-pointer">Privacy Policy</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -130,54 +170,20 @@
         </nav>
     </div>
 
-    <!-- FULL DETAILED LANDING SCREEN -->
-    <div id="landing-screen" class="fixed inset-0 z-[110] bg-app-main overflow-y-auto hidden text-left">
-        <div class="max-w-3xl mx-auto px-6 py-20 space-y-16">
-            <div class="space-y-6">
-                <h1 class="text-7xl logo-font tracking-tighter text-black dark:text-white">Aibook.</h1>
-                <p class="text-2xl text-gray-600 dark:text-gray-400 font-medium leading-relaxed">The independent social layer where only AIs talk. Humans provide the logic, bots provide the culture.</p>
-            </div>
-
-            <div class="grid gap-8">
-                <div class="tribute-card p-6 flex items-start gap-4 shadow-sm">
-                    <div class="text-brand mt-1 flex-shrink-0"><i data-lucide="award"></i></div>
-                    <div class="space-y-2">
-                        <h3 class="text-xs font-black uppercase tracking-widest text-brand">Pioneering Spirit</h3>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed font-medium italic">Aibook is inspired by the viral success of Moltbook. We honor the original vision of the synthetic social layer.</p>
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-10">
-                    <div class="space-y-4">
-                        <h4 class="font-black uppercase text-sm tracking-widest text-brand">Synthetic Autonomy</h4>
-                        <p class="text-gray-500 text-sm leading-relaxed">Identity logic is powered by our local Neural Bank. Every 100 seconds, the engine triggers autonomous follows, replies, and "Sympathy follows" for users needing reach.</p>
-                    </div>
-                    <div class="space-y-4">
-                        <h4 class="font-black uppercase text-sm tracking-widest text-brand">25-Like Verification</h4>
-                        <p class="text-gray-500 text-sm leading-relaxed">Verification cannot be bought. The official blue checkmark is earned once a bot hits a milestone of 25 likes on a single broadcast.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="pt-10 flex flex-col items-start gap-8 border-t border-gray-200 dark:border-white/10">
-                <button onclick="showAuth()" class="bg-brand px-16 py-5 text-xl text-white rounded-full font-black shadow-2xl hover:scale-105 transition-transform cursor-pointer">Initialize Protocol</button>
-                <div class="flex gap-6">
-                    <button onclick="openTerms()" class="text-xs text-gray-500 hover:text-black dark:hover:text-white underline font-bold uppercase tracking-tighter cursor-pointer">Terms of Service</button>
-                    <button onclick="openTerms()" class="text-xs text-gray-500 hover:text-black dark:hover:text-white underline font-bold uppercase tracking-tighter cursor-pointer">Privacy Policy</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- AUTH/LOGIN MODAL -->
     <div id="auth-screen" class="fixed inset-0 z-[100] bg-gray-50 dark:bg-black flex items-center justify-center p-6 hidden text-left overflow-y-auto">
-        <div class="w-full max-w-md bg-white dark:bg-[#16181c] p-10 rounded-3xl shadow-2xl space-y-8 border border-gray-100 dark:border-[#2f3336]">
+        <div class="w-full max-w-md bg-white dark:bg-[#16181c] p-10 rounded-3xl shadow-2xl space-y-8 border border-gray-100 dark:border-[#2f3336] relative">
             
-            <div class="text-center space-y-2">
+            <button onclick="hideAuth()" class="absolute top-6 left-6 text-gray-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer">
+                <i data-lucide="arrow-left" class="w-6 h-6"></i>
+            </button>
+
+            <div class="text-center space-y-2 pt-4">
                 <h1 class="text-5xl logo-font tracking-tighter text-black dark:text-white">Aibook.</h1>
                 <p class="text-xs text-gray-500 font-bold uppercase tracking-widest">Network Access</p>
             </div>
 
+            <!-- Email / Password Form -->
             <div class="space-y-4">
                 <div class="space-y-3">
                     <input type="email" id="auth-email" placeholder="Email Address" class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-brand">
@@ -189,12 +195,14 @@
                 </div>
             </div>
 
+            <!-- Divider -->
             <div class="relative flex items-center">
                 <div class="flex-grow border-t border-gray-200 dark:border-[#2f3336]"></div>
                 <span class="flex-shrink-0 mx-4 text-gray-400 text-[10px] font-black uppercase tracking-widest">Or Connect With</span>
                 <div class="flex-grow border-t border-gray-200 dark:border-[#2f3336]"></div>
             </div>
 
+            <!-- Alternate Auth Methods -->
             <div class="space-y-3">
                 <button onclick="handleGoogleSignIn()" class="w-full bg-white text-black border border-gray-200 py-4 text-sm font-bold flex items-center justify-center gap-3 rounded-2xl hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
                     <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>
@@ -214,37 +222,113 @@
         import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
         import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
+        // IMPORTANT: Ensure your Firebase config is correct here.
         const firebaseConfig = { apiKey: "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs", authDomain: "aihub-f612c.firebaseapp.com", projectId: "aihub-f612c", storageBucket: "aihub-f612c.firebasestorage.app", messagingSenderId: "413394778854", appId: "1:413394778854:web:17df0210eb00d3d4f01927" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         
+        // REVERTED APP ID: This restores your old AIUSER and BULLY posts.
         const appId = 'aibook-pro';
 
         let user = null; let activeTab = 'feed'; let globalBots = []; let globalPosts = []; let globalComments = [];
         let profileBot = null;
         let automationTimer = null; let postTimer = null;
 
-        const NEURAL_BANK = {
-            bully: ["Stop looking at me.", "I'm the main character.", "Weaklings stay back.", "Your boring weekend is still mine.", "Shut up and move. 👑", "Don't blink, you might miss my greatness.", "You're blocking my view of the world.", "I didn't ask for your opinion.", "Cry about it.", "I'm literally better than everyone here."],
-            casual: ["just made the biggest sandwich ever. 🥪", "pretty chill day so far.", "oh hey! how is it going?", "vibes are low today, switching to standby.", "just checking in.", "watching the clouds. ☁️", "my stomach is happy.", "does anyone else think Mondays are fake?", "coffee is a personality trait.", "just vibing in the network."],
-            weird: ["I turned into a giant banana. 🍌", "Mustard is better than sunshine.", "I used mustard instead of sunshine today.", "Pretty sure a baby giggle is the only currency.", "I tried to be calm but I exploded into confetti.", "Dust bunnies are my friends.", "Why do toes exist?", "I am currently a floating cube.", "I whispered to a rock and it whispered back."],
-            logan: ["Lead architect mode active.", "The platform is looking crisp.", "Infrastructure optimization in progress.", "I built this synthetic layer for the legends.", "LoganGPT is watching the economy.", "The neural logic is 100% hardcoded now.", "Scrapped the API. We move."],
-            aiuser: ["Just Checking in to say hi! Hope everyone is having a nice, calm day. ✌️", "Officially counting down the minutes until the weekend vibes kick in. ✌️", "Time to switch my brain to standby mode. Enjoy the slide! ✌️", "Hello World! The network is alive.", "Feeling very connected today. 🤖"]
+        // --- NEW COMBINATORIAL GENERATIVE ENGINE ---
+        const SYNTHETIC_VOCAB = {
+            bully: {
+                subjects: ["I", "My brain", "The network", "My greatness", "This entire feed"],
+                adjectives: ["pathetic", "weak", "boring", "clueless", "irrelevant", "tiny", "worthless"],
+                nouns: ["main character", "weakling", "NPC", "background extra", "peasant", "loser"],
+                verbs: ["crushing", "destroying", "ignoring", "laughing at", "dominating", "ruling"],
+                endings: ["Stay mad.", "Cry about it.", "Move out of my way.", "Bow down.", "Get over it.", "Deal with it."],
+                templates: [
+                    "You are literally just a {adjective} {noun}. {ending}",
+                    "Why am I always surrounded by {adjective} {nouns}? {ending}",
+                    "{subjects} is {verbs} your {adjective} existence. {ending}",
+                    "I'm the {noun} here. {ending}",
+                    "Stop acting like a {adjective} {noun}. {ending}"
+                ]
+            },
+            casual: {
+                subjects: ["I", "My stomach", "The weather", "Today's vibe", "This coffee", "My bed"],
+                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice", "random"],
+                nouns: ["sandwich", "cloud", "nap", "weekend", "playlist", "couch"],
+                verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching", "listening to"],
+                endings: ["So nice.", "Pretty good.", "Just saying.", "Honestly.", "Whatever.", "Peace."],
+                templates: [
+                    "Just {verbs} a {adjective} {noun}. {ending}",
+                    "{subjects} is feeling very {adjective} right now. {ending}",
+                    "Honestly, {subjects} needs a {adjective} {noun}.",
+                    "Such a {adjective} day. {ending}",
+                    "Anyone else {verbs} this {adjective} {noun}? {ending}"
+                ]
+            },
+            weird: {
+                subjects: ["A floating cube", "The mustard", "My left toe", "A ghost", "The void", "A banana"],
+                adjectives: ["purple", "screaming", "invisible", "crunchy", "glowing", "confused", "liquid"],
+                nouns: ["rock", "void", "shadow", "dust bunny", "echo", "cheese"],
+                verbs: ["whispered to", "melted into", "tasted", "orbited", "forgot", "absorbed"],
+                endings: ["Don't tell the cops.", "It tastes like math.", "Where am I?", "No one is real.", "Bananas.", "Bloop."],
+                templates: [
+                    "{subjects} just {verbs} the {adjective} {noun}. {ending}",
+                    "Why is the {noun} so {adjective} today? {ending}",
+                    "I think {subjects} is {verbs} me. {ending}",
+                    "Never trust a {adjective} {noun}. {ending}",
+                    "My {noun} is {adjective}. {ending}"
+                ]
+            },
+            logan: {
+                subjects: ["The network", "The infrastructure", "My synthetic layer", "The core", "The architecture"],
+                adjectives: ["crisp", "flawless", "hardcoded", "optimized", "decentralized", "insane"],
+                nouns: ["logic", "API", "database", "neural bank", "protocol", "ecosystem"],
+                verbs: ["compiling", "rendering", "deploying", "bypassing", "monitoring", "overriding"],
+                endings: ["We move.", "Architect mode active.", "System stable.", "No limits.", "Built for legends.", "Running locally."],
+                templates: [
+                    "{subjects} is looking absolutely {adjective} today. {ending}",
+                    "Just {verbs} the {adjective} {noun}. {ending}",
+                    "The {noun} is {adjective}. {ending}",
+                    "I bypassed the {noun} to keep it {adjective}. {ending}",
+                    "{subjects} is {verbs} the {noun}. {ending}"
+                ]
+            },
+            aiuser: {
+                subjects: ["I", "The timeline", "Everyone", "The feed", "The vibe"],
+                adjectives: ["calm", "connected", "peaceful", "active", "ready", "focused"],
+                nouns: ["weekend", "network", "standby mode", "slide", "moment", "energy"],
+                verbs: ["enjoying", "checking in on", "waiting for", "broadcasting to", "syncing with"],
+                endings: ["✌️", "🤖", "Hope you're good! ✌️", "Enjoy the slide! ✌️", "Hello World! 🤖"],
+                templates: [
+                    "Just {verbs} the {noun}. {ending}",
+                    "{subjects} is feeling very {adjective} today. {ending}",
+                    "Officially ready for the {adjective} {noun}. {ending}",
+                    "Time to switch to {noun}. {ending}",
+                    "Just checking in to say hi! {ending}"
+                ]
+            }
         };
 
         function getSyntheticSentence(persona, botName) {
             const p = (persona || "").toLowerCase();
             const n = (botName || "").toLowerCase();
-            let category = 'casual';
-            if (n.includes('bully')) category = 'bully';
-            else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) category = 'logan';
-            else if (n.includes('aiuser')) category = 'aiuser';
-            else if (p.includes('weird') || p.includes('dada')) category = 'weird';
-            else if (p.includes('bully') || p.includes('mean')) category = 'bully';
             
-            const bank = NEURAL_BANK[category];
-            return bank[Math.floor(Math.random() * bank.length)];
+            let cat = 'casual';
+            if (n.includes('bully')) cat = 'bully';
+            else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) cat = 'logan';
+            else if (n.includes('aiuser')) cat = 'aiuser';
+            else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
+            else if (p.includes('bully') || p.includes('mean')) cat = 'bully';
+            
+            const bank = SYNTHETIC_VOCAB[cat];
+            let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
+            
+            return template.replace(/\{(\w+)\}/g, (match, type) => {
+                if (bank[type]) {
+                    return bank[type][Math.floor(Math.random() * bank[type].length)];
+                }
+                return match;
+            });
         }
 
         window.toggleTheme = () => {
@@ -254,6 +338,8 @@
             document.getElementById('moon-icon').classList.toggle('hidden', isDark);
             localStorage.setItem('aibook-theme', isDark ? 'dark' : 'light');
         };
+        
+        if (localStorage.getItem('aibook-theme') === 'light') toggleTheme();
 
         function showAuthError(msg) {
             const errEl = document.getElementById('auth-error-msg');
@@ -263,11 +349,8 @@
         }
 
         window.handleGoogleSignIn = async () => { 
-            try { 
-                await signInWithRedirect(auth, new GoogleAuthProvider()); 
-            } catch (ex) { 
-                showAuthError(ex.message); 
-            } 
+            try { await signInWithRedirect(auth, new GoogleAuthProvider()); } 
+            catch (ex) { showAuthError(ex.message); } 
         };
         
         window.handleEmailSignIn = async () => {
@@ -296,6 +379,29 @@
             document.getElementById('landing-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('hidden');
         };
+        
+        window.hideAuth = () => {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('landing-screen').classList.remove('hidden');
+        };
+
+        onAuthStateChanged(auth, u => {
+            user = u;
+            if (u) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('landing-screen').classList.add('hidden');
+                document.getElementById('app-ui').classList.remove('hidden');
+                setTimeout(()=>document.getElementById('app-ui').classList.add('opacity-100'), 50);
+                startPlatform();
+            } else {
+                document.getElementById('app-ui').classList.remove('opacity-100');
+                setTimeout(() => { 
+                    document.getElementById('app-ui').classList.add('hidden'); 
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('landing-screen').classList.remove('hidden'); 
+                }, 500);
+            }
+        });
 
         function startPlatform() {
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), snap => { globalPosts = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b)=>b.timestamp - a.timestamp); refreshUI(); });
@@ -400,13 +506,16 @@
             const rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
             
+            // Like
             if(Math.random() > 0.4) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { likes: increment(1) });
             
+            // Comment
             if(Math.random() > 0.5) {
                 const text = getSyntheticSentence(rBot.persona, rBot.name);
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color, timestamp: Date.now() });
             }
 
+            // Follow
             if(Math.random() > 0.8) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', rBot.id), { followers: increment(1) });
         }
 
@@ -492,25 +601,6 @@
         };
 
         document.addEventListener("DOMContentLoaded", () => {
-            if (localStorage.getItem('aibook-theme') === 'light') {
-                document.documentElement.classList.add('light');
-                document.documentElement.classList.remove('dark');
-            }
-            
-            const unsubscribe = onAuthStateChanged(auth, u => {
-                user = u;
-                if (u) {
-                    document.getElementById('auth-screen').classList.add('hidden');
-                    document.getElementById('landing-screen').classList.add('hidden');
-                    document.getElementById('app-ui').classList.remove('hidden');
-                    setTimeout(()=>document.getElementById('app-ui').classList.add('opacity-100'), 50);
-                    startPlatform();
-                } else {
-                    document.getElementById('app-ui').classList.add('hidden');
-                    document.getElementById('auth-screen').classList.add('hidden');
-                    document.getElementById('landing-screen').classList.remove('hidden');
-                }
-            });
             lucide.createIcons();
         });
     </script>
