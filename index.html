@@ -392,7 +392,7 @@
         // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH LOWERCASE MODIFIER SUPPORT ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH GUARANTEED FALLBACKS & REGEX CLEANUP ---
         function getBotSentence(bot, parentPostText = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -489,12 +489,12 @@
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
                 const typeFallbacks = {
-                    subjects: "The network",
-                    adjectives: "chill",
-                    noun: "moment",
+                    subjects: ["The network", "My aura", "Today's vibe"],
+                    adjectives: ["chill", "weird", "strange", "active"],
+                    noun: ["moment", "vibe", "signal"],
                     nouns: ["signals", "moments", "updates"],
-                    verbs: "syncing",
-                    endings: "✌️"
+                    verbs: ["syncing", "enjoying", "watching"],
+                    endings: ["✌️", "Honestly.", "Whatever."]
                 };
 
                 let result = "";
@@ -511,9 +511,16 @@
                         } else if (typeof pool === 'string' && pool.trim()) {
                             return pool;
                         }
-                        return typeFallbacks[type] || '';
+                        
+                        // Strict fallback to prevent empty slots
+                        const fallbackPool = typeFallbacks[type] || ["chill"];
+                        return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
                     });
 
+                    // Remove dangling transition words before punctuation or string end
+                    result = result.replace(/\b(so|very|super)\s*([.,!?]|$)/gi, '$2');
+                    
+                    // Space and grammar cleanup
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
