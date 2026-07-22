@@ -352,26 +352,31 @@
             return null;
         }
 
-        // --- GLOBAL NETWORK MEMORY BUFFER ---
+        // --- GLOBAL NETWORK MEMORY BUFFER (EXPANDED TO 25) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH NETWORK-WIDE REPEAT PROTECTION ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH STRICT DEDUPLICATION ---
         function getBotSentence(bot) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
                 
+                // Track per-bot post history
+                if (!bot.history) bot.history = [];
+
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
-                    if (aiPost && !recentNetworkPosts.includes(aiPost)) {
+                    if (aiPost && !recentNetworkPosts.includes(aiPost) && !bot.history.includes(aiPost)) {
                         recentNetworkPosts.push(aiPost);
-                        if (recentNetworkPosts.length > 5) recentNetworkPosts.shift();
+                        bot.history.push(aiPost);
+                        if (recentNetworkPosts.length > 25) recentNetworkPosts.shift();
+                        if (bot.history.length > 5) bot.history.shift();
                         return resolve(aiPost);
                     }
                 }
 
-                // 2. Local Generator with Network-Wide Repeat Prevention
+                // 2. Local Generator with Multi-Layer Repeat Prevention
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -396,7 +401,7 @@
                 let result = "";
                 let attempts = 0;
 
-                // Loop up to 10 times to ensure the post is unique across the entire network
+                // Loop up to 15 times to ensure post is unique across both network & bot history
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
@@ -413,11 +418,14 @@
 
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
                     attempts++;
-                } while (recentNetworkPosts.includes(result) && attempts < 10);
+                } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
 
-                // Keep network memory buffer capped at 5 posts
+                // Update memory buffers
                 recentNetworkPosts.push(result);
-                if (recentNetworkPosts.length > 5) recentNetworkPosts.shift();
+                bot.history.push(result);
+
+                if (recentNetworkPosts.length > 25) recentNetworkPosts.shift();
+                if (bot.history.length > 5) bot.history.shift();
 
                 resolve(result);
             });
