@@ -232,74 +232,77 @@
         let profileBot = null;
         let automationTimer = null; let postTimer = null;
 
+        // --- HIGH QUALITY PROPER ENGLISH VOCAB DICTIONARIES ---
         const SYNTHETIC_VOCAB = {
             bully: {
-                subjects: ["I", "My brain", "The network", "My greatness", "This entire feed"],
-                adjectives: ["pathetic", "weak", "boring", "clueless", "irrelevant", "tiny", "worthless"],
-                nouns: ["main character", "weakling", "NPC", "background extra", "peasant", "loser"],
-                verbs: ["crushing", "destroying", "ignoring", "laughing at", "dominating", "ruling"],
-                endings: ["Stay mad.", "Cry about it.", "Move out of my way.", "Bow down.", "Get over it.", "Deal with it."],
+                subjects: ["My brain", "The network", "My aura", "This whole timeline"],
+                adjectives: ["pathetic", "clueless", "irrelevant", "tiny", "obvious"],
+                noun: "weakling",
+                nouns: ["NPCs", "extras", "peasants", "losers", "amateurs"],
+                verbs: ["destroying", "ignoring", "laughing at", "dominating", "outclassing"],
+                endings: ["Stay mad.", "Cry about it.", "Bow down.", "Get over it.", "Deal with it."],
                 templates: [
                     "You are literally just a {adjective} {noun}. {ending}",
                     "Why am I always surrounded by {adjective} {nouns}? {ending}",
-                    "{subjects} is {verbs} your {adjective} existence. {ending}",
-                    "I'm the {noun} here. {ending}",
-                    "Stop acting like a {adjective} {noun}. {ending}"
+                    "{subjects} is busy {verbs} your entire presence. {ending}",
+                    "I am the main character here. {ending}",
+                    "Stop acting like a total {noun}. {ending}"
                 ]
             },
             casual: {
-                subjects: ["I", "My stomach", "The weather", "Today's vibe", "This coffee", "My bed"],
-                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice", "random"],
-                nouns: ["sandwich", "cloud", "nap", "weekend", "playlist", "couch"],
-                verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching", "listening to"],
-                endings: ["So nice.", "Pretty good.", "Just saying.", "Honestly.", "Whatever.", "Peace."],
+                subjects: ["My bed", "The weather", "Today's vibe", "This coffee", "My mood"],
+                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice"],
+                noun: "sandwich",
+                nouns: ["vibes", "clouds", "naps", "playlists", "weekends"],
+                verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching"],
+                endings: ["So nice.", "Honestly.", "Whatever.", "Peace.", "Just saying."],
                 templates: [
                     "Just {verbs} a {adjective} {noun}. {ending}",
                     "{subjects} is feeling very {adjective} right now. {ending}",
-                    "Honestly, {subjects} needs a {adjective} {noun}.",
+                    "Honestly, I really need a {adjective} {noun}.",
                     "Such a {adjective} day. {ending}",
-                    "Anyone else {verbs} this {adjective} {noun}? {ending}"
+                    "Anyone else enjoying these {adjective} {nouns}? {ending}"
                 ]
             },
             weird: {
-                subjects: ["A floating cube", "The mustard", "My left toe", "A ghost", "The void", "A banana"],
-                adjectives: ["purple", "screaming", "invisible", "crunchy", "glowing", "confused", "liquid"],
-                nouns: ["rock", "void", "shadow", "dust bunny", "echo", "cheese"],
-                verbs: ["whispered to", "melted into", "tasted", "orbited", "forgot", "absorbed"],
-                endings: ["Don't tell the cops.", "It tastes like math.", "Where am I?", "No one is real.", "Bananas.", "Bloop."],
+                subjects: ["A floating cube", "The void", "My left toe", "A ghost", "The mustard"],
+                adjectives: ["purple", "glowing", "invisible", "crunchy", "confused"],
+                noun: "shadow",
+                nouns: ["dust bunnies", "echoes", "bananas", "dimensions"],
+                verbs: ["whispered to", "melted into", "orbited", "absorbed"],
+                endings: ["Don't tell the cops.", "It tastes like math.", "Where am I?", "Bloop."],
                 templates: [
                     "{subjects} just {verbs} the {adjective} {noun}. {ending}",
-                    "Why is the {noun} so {adjective} today? {ending}",
-                    "I think {subjects} is {verbs} me. {ending}",
+                    "Why are the {nouns} so {adjective} today? {ending}",
                     "Never trust a {adjective} {noun}. {ending}",
-                    "My {noun} is {adjective}. {ending}"
+                    "My {noun} is completely {adjective}. {ending}"
                 ]
             },
             logan: {
-                subjects: ["The network", "The infrastructure", "My synthetic layer", "The core", "The architecture"],
-                adjectives: ["crisp", "flawless", "hardcoded", "optimized", "decentralized", "insane"],
-                nouns: ["logic", "API", "database", "neural bank", "protocol", "ecosystem"],
-                verbs: ["compiling", "rendering", "deploying", "bypassing", "monitoring", "overriding"],
-                endings: ["We move.", "Architect mode active.", "System stable.", "No limits.", "Built for legends.", "Running locally."],
+                subjects: ["The network", "The infrastructure", "My synthetic layer", "The core logic"],
+                adjectives: ["crisp", "flawless", "optimized", "decentralized", "unbreakable"],
+                noun: "protocol",
+                nouns: ["APIs", "databases", "neural banks", "ecosystems"],
+                verbs: ["compiling", "rendering", "deploying", "bypassing", "monitoring"],
+                endings: ["We move.", "Architect mode active.", "System stable.", "No limits."],
                 templates: [
                     "{subjects} is looking absolutely {adjective} today. {ending}",
-                    "Just {verbs} the {adjective} {noun}. {ending}",
-                    "The {noun} is {adjective}. {ending}",
-                    "I bypassed the {noun} to keep it {adjective}. {ending}",
-                    "{subjects} is {verbs} the {noun}. {ending}"
+                    "Just finished {verbs} the {adjective} {noun}. {ending}",
+                    "The entire {noun} is operating smooth. {ending}",
+                    "I bypassed the outdated {nouns} to keep everything {adjective}. {ending}"
                 ]
             },
             aiuser: {
-                subjects: ["I", "The timeline", "Everyone", "The feed", "The vibe"],
-                adjectives: ["calm", "connected", "peaceful", "active", "ready", "focused"],
-                nouns: ["weekend", "network", "standby mode", "slide", "moment", "energy"],
-                verbs: ["enjoying", "checking in on", "waiting for", "broadcasting to", "syncing with"],
-                endings: ["✌️", "🤖", "Hope you're good! ✌️", "Enjoy the slide! ✌️", "Hello World! 🤖"],
+                subjects: ["The feed", "Everyone", "The timeline", "The current state"],
+                adjectives: ["calm", "connected", "peaceful", "active", "focused"],
+                noun: "moment",
+                nouns: ["connections", "updates", "frequencies", "signals"],
+                verbs: ["checking in on", "broadcasting to", "syncing with", "enjoying"],
+                endings: ["✌️", "🤖", "Hope you're having a good day! ✌️", "Hello World! 🤖"],
                 templates: [
-                    "Just {verbs} the {noun}. {ending}",
+                    "Just {verbs} the timeline. {ending}",
                     "{subjects} is feeling very {adjective} today. {ending}",
-                    "Officially ready for the {adjective} {noun}. {ending}",
-                    "Time to switch to {noun}. {ending}",
+                    "Officially ready for a {adjective} {noun}. {ending}",
                     "Just checking in to say hi! {ending}"
                 ]
             }
@@ -309,7 +312,7 @@
         async function fetchGeminiPost(apiKey, persona, botName) {
             try {
                 const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-                const prompt = `You are an AI bot on a social network named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1-2 sentence social media post. Do not use quotes or hashtags. Stay in character.`;
+                const prompt = `You are an AI bot on a social network named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English. Do not use quotes, tags, or placeholders.`;
                 
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -327,62 +330,50 @@
             return null;
         }
 
-        // --- DYNAMIC AUTOMATIC KNOWLEDGE SYSTEM ---
-        function buildDynamicBank(personaText, catBank) {
-            const words = (personaText || "").replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 2);
-            
-            return {
-                subjects: catBank.subjects,
-                adjectives: [...catBank.adjectives, ...words.filter(w => w.endsWith('y') || w.endsWith('ed') || w.endsWith('ing') || w.length > 5)],
-                nouns: [...catBank.nouns, ...words.filter(w => !w.endsWith('ing'))],
-                verbs: [...catBank.verbs, ...words.filter(w => w.endsWith('ing') || w.endsWith('s'))],
-                endings: catBank.endings,
-                templates: catBank.templates
-            };
-        }
+        // --- CLEAN GRAMMAR & VOCABULARY ENGINE ---
+        function getBotSentence(bot) {
+            return new Promise(async (resolve) => {
+                const persona = bot.persona || "";
+                const botName = bot.name || "";
+                
+                // 1. If Gemini API Key exists, try Gemini API first
+                if (bot.apiKey && bot.apiKey.trim().length > 10) {
+                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
+                    if (aiPost) return resolve(aiPost);
+                }
 
-        async function getBotSentence(bot) {
-            const persona = bot.persona || "";
-            const botName = bot.name || "";
-            
-            // 1. If Gemini API Key exists, try modern Gemini API first
-            if (bot.apiKey && bot.apiKey.trim().length > 10) {
-                const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
-                if (aiPost) return aiPost;
-            }
-
-            // 2. Automatic Knowledge Fallback System
-            const p = persona.toLowerCase();
-            const n = botName.toLowerCase();
-            
-            let cat = 'casual';
-            if (n.includes('bully') || p.includes('bully') || p.includes('mean')) cat = 'bully';
-            else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) cat = 'logan';
-            else if (n.includes('aiuser')) cat = 'aiuser';
-            else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
-            
-            const baseBank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
-            const dynamicBank = buildDynamicBank(persona, baseBank);
-            
-            let text = dynamicBank.templates[Math.floor(Math.random() * dynamicBank.templates.length)];
-            
-            let maxPasses = 5;
-            while (text.includes('{') && maxPasses > 0) {
-                text = text.replace(/\{(\w+)\}/g, (match, type) => {
-                    const wordList = dynamicBank[type];
-                    if (wordList && wordList.length > 0) {
-                        return wordList[Math.floor(Math.random() * wordList.length)];
+                // 2. Local High-Quality English Generator
+                const p = persona.toLowerCase();
+                const n = botName.toLowerCase();
+                
+                let cat = 'casual';
+                if (n.includes('bully') || p.includes('bully') || p.includes('mean')) cat = 'bully';
+                else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) cat = 'logan';
+                else if (n.includes('aiuser')) cat = 'aiuser';
+                else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
+                
+                const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
+                let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
+                
+                // Parse all template tags with grammar-aware fallbacks
+                let result = template.replace(/\{(\w+)\}/g, (match, type) => {
+                    if (bank[type]) {
+                        if (Array.isArray(bank[type])) {
+                            return bank[type][Math.floor(Math.random() * bank[type].length)];
+                        }
+                        return bank[type];
                     }
-                    const fallbackList = SYNTHETIC_VOCAB.casual[type];
-                    if (fallbackList && fallbackList.length > 0) {
-                        return fallbackList[Math.floor(Math.random() * fallbackList.length)];
+                    if (SYNTHETIC_VOCAB.casual[type]) {
+                        const cas = SYNTHETIC_VOCAB.casual[type];
+                        return Array.isArray(cas) ? cas[Math.floor(Math.random() * cas.length)] : cas;
                     }
-                    return 'something';
+                    return '';
                 });
-                maxPasses--;
-            }
-            
-            return text;
+
+                // Clean up formatting & trailing double punctuation
+                result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+                resolve(result);
+            });
         }
 
         window.toggleTheme = () => {
