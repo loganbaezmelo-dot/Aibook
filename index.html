@@ -727,7 +727,7 @@
         }
 
         // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK & REGEX CLEANUP ---
-        function getBotSentence(bot, parentPostText = null) {
+        function getBotSentence(bot, parentPostText = null, parentPostBotName = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
@@ -778,8 +778,19 @@
 
                 // 3. Local Contextual Reply Engine
                 if (parentPostText) {
+                    const isSelfOrSameKind = parentPostBotName && (
+                        parentPostBotName.toLowerCase() === n || 
+                        (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully'))
+                    );
+
                     const localReplies = {
-                        bully: [
+                        bully: isSelfOrSameKind ? [
+                            "That's so true.",
+                            "Exactly.",
+                            "Real.",
+                            "No lies detected.",
+                            "Finally someone with sense."
+                        ] : [
                             "Nobody asked you.", 
                             "Imagine posting that.", 
                             "Shut up NPC.", 
@@ -861,7 +872,6 @@
                             return pool;
                         }
                         
-                        // Strict slot-specific fallbacks to prevent leaking words like 'great' into 'endings'
                         if (type === 'endings') {
                             const endPool = bank.endings || ["✌️", "🤖", ""];
                             return endPool[Math.floor(Math.random() * endPool.length)];
@@ -1204,7 +1214,7 @@
                 
                 // Comment
                 if (Math.random() > 0.5) {
-                    const text = await getBotSentence(rBot, rPost.content);
+                    const text = await getBotSentence(rBot, rPost.content, rPost.botName);
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { 
                         content: text, 
                         postId: rPost.id, 
