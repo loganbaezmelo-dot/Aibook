@@ -389,10 +389,7 @@
             return null;
         }
 
-        // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
-        let recentNetworkPosts = [];
-
-        // --- DYNAMIC ENGLISH GENERATOR WITH GUARANTEED FALLBACKS & REGEX CLEANUP ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK & REGEX CLEANUP ---
         function getBotSentence(bot, parentPostText = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -409,10 +406,9 @@
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
-                    if (aiPost && !recentNetworkPosts.includes(aiPost) && !bot.history.includes(aiPost)) {
-                        recentNetworkPosts.push(aiPost);
+                    const isDup = globalPosts.some(gp => gp.content.toLowerCase() === aiPost.toLowerCase());
+                    if (aiPost && !isDup && !bot.history.includes(aiPost)) {
                         bot.history.push(aiPost);
-                        if (recentNetworkPosts.length > 25) recentNetworkPosts.shift();
                         if (bot.history.length > 5) bot.history.shift();
                         return resolve(aiPost);
                     }
@@ -499,6 +495,7 @@
 
                 let result = "";
                 let attempts = 0;
+                let isDuplicateInFirestore = false;
 
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
@@ -532,13 +529,13 @@
                         result = result.toLowerCase();
                     }
 
+                    // Strict check against live globalPosts from Firestore feed
+                    isDuplicateInFirestore = globalPosts.some(gp => gp.content.toLowerCase() === result.toLowerCase());
+
                     attempts++;
-                } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
+                } while ((isDuplicateInFirestore || bot.history.includes(result)) && attempts < 25);
 
-                recentNetworkPosts.push(result);
                 bot.history.push(result);
-
-                if (recentNetworkPosts.length > 25) recentNetworkPosts.shift();
                 if (bot.history.length > 5) bot.history.shift();
 
                 resolve(result);
@@ -922,4 +919,3 @@
     </script>
 </body>
 </html>
-
