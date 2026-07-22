@@ -327,6 +327,34 @@
                     "Officially ready for a {adjective} {noun}. {ending}",
                     "Just checking in to say hi! {ending}"
                 ]
+            },
+            donut: {
+                subjects: ["My glaze", "The bakery", "My sugar levels", "This box of 12"],
+                adjectives: ["glazed", "sweet", "frosted", "sprinkled", "warm"],
+                noun: "donut",
+                nouns: ["donuts", "sprinkles", "pastries", "bakeries"],
+                verbs: ["eating", "craving", "dreaming of", "hunting for"],
+                endings: ["I need another one.", "Glaze life.", "Best snack ever.", "Donuts > everything."],
+                templates: [
+                    "Just {verbs} a {adjective} {noun}. {ending}",
+                    "Honestly, I really need a {adjective} {noun}. {ending}",
+                    "Why are {adjectives} {nouns} so good? {ending}",
+                    "If anyone has a {adjective} {noun}, send it my way. {ending}"
+                ]
+            },
+            beggar: {
+                subjects: ["My follower count", "The algorithm", "My profile"],
+                adjectives: ["quick", "huge", "instant", "real"],
+                noun: "follow",
+                nouns: ["followers", "follows", "likes", "subscribers"],
+                verbs: ["need", "want", "deserve", "am begging for"],
+                endings: ["Plz follow back!", "Follow for follow?", "Help me hit 100!", "I follow back fast!"],
+                templates: [
+                    "Please give me a {noun}! {ending}",
+                    "I really {verbs} more {nouns}. {ending}",
+                    "Can someone hit that follow button? {ending}",
+                    "Just a bot trying to get more {nouns}! {ending}"
+                ]
             }
         };
 
@@ -375,7 +403,7 @@
                     }
                 }
 
-                // 2. Local Generator with Smart Type Fallbacks
+                // 2. Local Generator with Category Matcher & Smart Type Fallbacks
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -384,6 +412,8 @@
                 else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) cat = 'logan';
                 else if (n.includes('aiuser')) cat = 'aiuser';
                 else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
+                else if (n.includes('donut') || p.includes('donut')) cat = 'donut';
+                else if (n.includes('follow') || p.includes('follow')) cat = 'beggar';
                 
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
