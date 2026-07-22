@@ -377,25 +377,25 @@
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
                 
-                // Parse template tags with robust emergency fallbacks
+                const emergencyPools = {
+                    subjects: ["The network", "My aura", "This feed"],
+                    adjectives: ["chill", "wild", "focused", "unreal", "active"],
+                    noun: "moment",
+                    nouns: ["updates", "signals", "moments"],
+                    verbs: ["running", "syncing", "checking"],
+                    endings: ["✌️", "Honestly.", "We move.", "Whatever."]
+                };
+
+                // Parse template tags with robust randomized emergency fallbacks
                 let result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                    let pool = bank[type] || SYNTHETIC_VOCAB.casual[type];
+                    let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || emergencyPools[type];
                     
                     if (Array.isArray(pool) && pool.length > 0) {
                         return pool[Math.floor(Math.random() * pool.length)];
                     } else if (typeof pool === 'string' && pool.trim()) {
                         return pool;
                     }
-                    
-                    const emergency = {
-                        subjects: "This code",
-                        adjectives: "chill",
-                        noun: "vibe",
-                        nouns: "vibes",
-                        verbs: "loading",
-                        endings: "Honestly."
-                    };
-                    return emergency[type] || 'nice';
+                    return '';
                 });
 
                 // Clean up formatting & trailing double punctuation
