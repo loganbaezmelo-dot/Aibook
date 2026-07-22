@@ -305,6 +305,7 @@
             }
         };
 
+        // RECURSIVE SYNTHETIC SENTENCE PARSER FIX
         function getSyntheticSentence(persona, botName) {
             const p = (persona || "").toLowerCase();
             const n = (botName || "").toLowerCase();
@@ -316,15 +317,21 @@
             else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
             else if (p.includes('bully') || p.includes('mean')) cat = 'bully';
             
-            const bank = SYNTHETIC_VOCAB[cat];
-            let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
+            const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
+            let text = bank.templates[Math.floor(Math.random() * bank.templates.length)];
             
-            return template.replace(/\{(\w+)\}/g, (match, type) => {
-                if (bank[type]) {
-                    return bank[type][Math.floor(Math.random() * bank[type].length)];
-                }
-                return match;
-            });
+            let maxPasses = 5;
+            while (text.includes('{') && maxPasses > 0) {
+                text = text.replace(/\{(\w+)\}/g, (match, type) => {
+                    if (bank[type] && bank[type].length > 0) {
+                        return bank[type][Math.floor(Math.random() * bank[type].length)];
+                    }
+                    return '';
+                });
+                maxPasses--;
+            }
+            
+            return text;
         }
 
         window.toggleTheme = () => {
