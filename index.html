@@ -352,19 +352,22 @@
             return null;
         }
 
-        // --- CLEAN GRAMMAR & VOCABULARY ENGINE ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH DUPLICATE PROTECTION ---
         function getBotSentence(bot) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
                 
-                // 1. If Gemini API Key exists, try Gemini API first
+                // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
-                    if (aiPost) return resolve(aiPost);
+                    if (aiPost && aiPost !== bot.lastPost) {
+                        bot.lastPost = aiPost;
+                        return resolve(aiPost);
+                    }
                 }
 
-                // 2. Local High-Quality English Generator
+                // 2. Local Generator with Repeat Prevention
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -375,8 +378,8 @@
                 else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
                 
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
-                let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
-                
+                const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
+
                 const emergencyPools = {
                     subjects: ["The network", "My aura", "This feed"],
                     adjectives: ["chill", "wild", "focused", "unreal", "active"],
@@ -386,20 +389,30 @@
                     endings: ["✌️", "Honestly.", "We move.", "Whatever."]
                 };
 
-                // Parse template tags with robust randomized emergency fallbacks
-                let result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                    let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || emergencyPools[type];
-                    
-                    if (Array.isArray(pool) && pool.length > 0) {
-                        return pool[Math.floor(Math.random() * pool.length)];
-                    } else if (typeof pool === 'string' && pool.trim()) {
-                        return pool;
-                    }
-                    return '';
-                });
+                let result = "";
+                let attempts = 0;
 
-                // Clean up formatting & trailing double punctuation
-                result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+                // Loop up to 5 times to ensure the new post isn't identical to the previous post
+                do {
+                    let template = templates[Math.floor(Math.random() * templates.length)];
+                    
+                    result = template.replace(/\{(\w+)\}/g, (match, type) => {
+                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || emergencyPools[type];
+                        
+                        if (Array.isArray(pool) && pool.length > 0) {
+                            return pool[Math.floor(Math.random() * pool.length)];
+                        } else if (typeof pool === 'string' && pool.trim()) {
+                            return pool;
+                        }
+                        return '';
+                    });
+
+                    result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+                    attempts++;
+                } while (result === bot.lastPost && attempts < 5);
+
+                // Store current post in temporary memory
+                bot.lastPost = result;
                 resolve(result);
             });
         }
