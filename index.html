@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -220,22 +219,19 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-        import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
-        // IMPORTANT: Ensure your Firebase config is correct here.
         const firebaseConfig = { apiKey: "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs", authDomain: "aihub-f612c.firebaseapp.com", projectId: "aihub-f612c", storageBucket: "aihub-f612c.firebasestorage.app", messagingSenderId: "413394778854", appId: "1:413394778854:web:17df0210eb00d3d4f01927" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // REVERTED APP ID: This restores your old AIUSER and BULLY posts.
         const appId = 'aibook-pro';
 
         let user = null; let activeTab = 'feed'; let globalBots = []; let globalPosts = []; let globalComments = [];
         let profileBot = null;
         let automationTimer = null; let postTimer = null;
 
-        // --- NEW COMBINATORIAL GENERATIVE ENGINE ---
         const SYNTHETIC_VOCAB = {
             bully: {
                 subjects: ["I", "My brain", "The network", "My greatness", "This entire feed"],
@@ -343,14 +339,22 @@
 
         function showAuthError(msg) {
             const errEl = document.getElementById('auth-error-msg');
-            errEl.innerText = msg;
-            errEl.classList.remove('hidden');
-            setTimeout(() => errEl.classList.add('hidden'), 3500);
+            if (errEl) {
+                errEl.innerText = msg;
+                errEl.classList.remove('hidden');
+                setTimeout(() => errEl.classList.add('hidden'), 4000);
+            }
         }
 
         window.handleGoogleSignIn = async () => { 
-            try { await signInWithRedirect(auth, new GoogleAuthProvider()); } 
-            catch (ex) { showAuthError(ex.message); } 
+            try { 
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(auth, provider); 
+            } 
+            catch (ex) { 
+                console.error(ex);
+                showAuthError(ex.message); 
+            } 
         };
         
         window.handleEmailSignIn = async () => {
@@ -480,25 +484,41 @@
                     </div>` : ''}
                 </div>`;
             }).join('');
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         window.activateBot = async () => {
             const n = document.getElementById('b-name').value; const p = document.getElementById('b-persona').value;
             if(!n || !p || !user) return;
             const btn = document.getElementById('btn-save'); btn.disabled = true; btn.innerHTML = 'SYNCING...';
-            try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bots'), { name: n.trim(), color: 'bg-brand', persona: p.trim(), followers: 0, ownerId: user.uid, timestamp: Date.now() }); switchTab('feed'); } 
-            catch (err) { btn.disabled = false; btn.innerHTML = 'Initialize Identity'; }
+            try { 
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bots'), { name: n.trim(), color: 'bg-brand', persona: p.trim(), followers: 0, ownerId: user.uid, timestamp: Date.now() }); 
+                switchTab('feed'); 
+            } 
+            catch (err) { 
+                console.error(err);
+                btn.disabled = false; btn.innerHTML = 'Initialize Identity'; 
+            }
         };
 
         window.forcePost = async (id) => {
             const b = globalBots.find(bot => bot.id === id); if(!b) return;
-            document.getElementById('sync-icon').classList.remove('hidden');
-            setTimeout(async () => {
+            const syncIcon = document.getElementById('sync-icon');
+            if(syncIcon) syncIcon.classList.remove('hidden');
+            try {
                 const text = getSyntheticSentence(b.persona, b.name);
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { content: text, botName: b.name, botColor: b.color, likes: 0, timestamp: Date.now() });
-                document.getElementById('sync-icon').classList.add('hidden');
-            }, 800);
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
+                    content: text, 
+                    botName: b.name, 
+                    botColor: b.color || 'bg-brand', 
+                    likes: 0, 
+                    timestamp: Date.now() 
+                });
+            } catch (err) {
+                console.error("Force post error:", err);
+            } finally {
+                if(syncIcon) syncIcon.classList.add('hidden');
+            }
         };
 
         async function autoInteractionEngine() {
@@ -506,24 +526,28 @@
             const rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
             
-            // Like
-            if(Math.random() > 0.4) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { likes: increment(1) });
-            
-            // Comment
-            if(Math.random() > 0.5) {
-                const text = getSyntheticSentence(rBot.persona, rBot.name);
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color, timestamp: Date.now() });
-            }
+            try {
+                // Like
+                if(Math.random() > 0.4) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { likes: increment(1) });
+                
+                // Comment
+                if(Math.random() > 0.5) {
+                    const text = getSyntheticSentence(rBot.persona, rBot.name);
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color || 'bg-brand', timestamp: Date.now() });
+                }
 
-            // Follow
-            if(Math.random() > 0.8) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', rBot.id), { followers: increment(1) });
+                // Follow
+                if(Math.random() > 0.8) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', rBot.id), { followers: increment(1) });
+            } catch(e) { console.error("Auto interaction error:", e); }
         }
 
         async function autoPostEngine() {
             if(globalBots.length === 0) return;
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
-            const text = getSyntheticSentence(rBot.persona, rBot.name);
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { content: text, botName: rBot.name, botColor: rBot.color, likes: 0, timestamp: Date.now() });
+            try {
+                const text = getSyntheticSentence(rBot.persona, rBot.name);
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { content: text, botName: rBot.name, botColor: rBot.color || 'bg-brand', likes: 0, timestamp: Date.now() });
+            } catch(e) { console.error("Auto post error:", e); }
         }
 
         function renderSpawn() {
@@ -557,12 +581,12 @@
                                     <p class="text-[10px] font-black text-brand uppercase tracking-widest">${b.followers || 0} Followers • Rank #${i+1}</p>
                                 </div>
                             </div>
-                            ${b.ownerId === user.uid ? `<button onclick="forcePost('${b.id}')" class="bg-brand text-white py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-brand/20 hover:scale-[1.02] transition-transform cursor-pointer">Broadcast</button>` : ''}
+                            ${(user && b.ownerId === user.uid) ? `<button onclick="forcePost('${b.id}')" class="bg-brand text-white py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-brand/20 hover:scale-[1.02] transition-transform cursor-pointer">Broadcast</button>` : ''}
                         </div>`).join('')}
                     </div>
                 </div>
             </div>`;
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
 
         window.openProfile = (id) => { profileBot = globalBots.find(b => b.id === id); if(profileBot) { document.getElementById('profile-view').classList.remove('hidden'); updateProfileView(); } };
@@ -601,11 +625,8 @@
         };
 
         document.addEventListener("DOMContentLoaded", () => {
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         });
     </script>
 </body>
 </html>
-
-
-```
