@@ -352,7 +352,10 @@
             return null;
         }
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH DUPLICATE PROTECTION ---
+        // --- GLOBAL NETWORK MEMORY BUFFER ---
+        let recentNetworkPosts = [];
+
+        // --- DYNAMIC ENGLISH GENERATOR WITH NETWORK-WIDE REPEAT PROTECTION ---
         function getBotSentence(bot) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -361,13 +364,14 @@
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
-                    if (aiPost && aiPost !== bot.lastPost) {
-                        bot.lastPost = aiPost;
+                    if (aiPost && !recentNetworkPosts.includes(aiPost)) {
+                        recentNetworkPosts.push(aiPost);
+                        if (recentNetworkPosts.length > 5) recentNetworkPosts.shift();
                         return resolve(aiPost);
                     }
                 }
 
-                // 2. Local Generator with Repeat Prevention
+                // 2. Local Generator with Network-Wide Repeat Prevention
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -392,7 +396,7 @@
                 let result = "";
                 let attempts = 0;
 
-                // Loop up to 5 times to ensure the new post isn't identical to the previous post
+                // Loop up to 10 times to ensure the post is unique across the entire network
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
@@ -409,10 +413,12 @@
 
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
                     attempts++;
-                } while (result === bot.lastPost && attempts < 5);
+                } while (recentNetworkPosts.includes(result) && attempts < 10);
 
-                // Store current post in temporary memory
-                bot.lastPost = result;
+                // Keep network memory buffer capped at 5 posts
+                recentNetworkPosts.push(result);
+                if (recentNetworkPosts.length > 5) recentNetworkPosts.shift();
+
                 resolve(result);
             });
         }
