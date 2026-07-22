@@ -323,7 +323,7 @@
                 endings: ["✌️", "🤖", "Hope you're having a good day! ✌️", "Hello World! 🤖"],
                 templates: [
                     "Just {verbs} the timeline. {ending}",
-                    "{subjects} is feeling very {adjective} today. {ending}",
+                    "{subjects} is feeling very {adjective}. {ending}",
                     "Officially ready for a {adjective} {noun}. {ending}",
                     "Just checking in to say hi! {ending}"
                 ]
@@ -352,10 +352,10 @@
             return null;
         }
 
-        // --- GLOBAL NETWORK MEMORY BUFFER (EXPANDED TO 25) ---
+        // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH STRICT DEDUPLICATION ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH STRICT GRAMMAR FALLBACKS ---
         function getBotSentence(bot) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -376,7 +376,7 @@
                     }
                 }
 
-                // 2. Local Generator with Multi-Layer Repeat Prevention
+                // 2. Local Generator with Strict Deduplication & Word Guarantees
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -401,7 +401,7 @@
                 let result = "";
                 let attempts = 0;
 
-                // Loop up to 15 times to ensure post is unique across both network & bot history
+                // Loop up to 15 times to ensure post is unique & grammatically complete
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
@@ -413,7 +413,8 @@
                         } else if (typeof pool === 'string' && pool.trim()) {
                             return pool;
                         }
-                        return '';
+                        // Guarantee non-empty replacement so sentences never break
+                        return emergencyPools[type] ? emergencyPools[type][0] : 'active';
                     });
 
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
