@@ -853,7 +853,7 @@
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
                     result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || typeFallbacks[type];
+                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type];
                         
                         if (Array.isArray(pool) && pool.length > 0) {
                             return pool[Math.floor(Math.random() * pool.length)];
@@ -861,7 +861,13 @@
                             return pool;
                         }
                         
-                        const fallbackPool = typeFallbacks[type] || ["great"];
+                        // Strict slot-specific fallbacks to prevent leaking words like 'great' into 'endings'
+                        if (type === 'endings') {
+                            const endPool = bank.endings || ["✌️", "🤖", ""];
+                            return endPool[Math.floor(Math.random() * endPool.length)];
+                        }
+                        
+                        const fallbackPool = typeFallbacks[type] || [""];
                         return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
                     });
 
@@ -869,6 +875,7 @@
                     result = result.replace(/\s+/g, ' ');
 
                     // 2. Fix dangling "feeling right now" or dangling verbs/adjectives
+                    result = result.replace(/\bis\s+feeling\s+right\s+now/gi, 'is feeling great right now');
                     result = result.replace(/\bfeeling\s+right\s+now/gi, 'feeling great right now');
                     result = result.replace(/\b(so|very|super)\s+(?=(right\s+now|now|[.,!?]|$))/gi, '');
 
