@@ -358,14 +358,16 @@
             }
         };
 
-        // --- GEMINI API CALLER WITH CONTEXTUAL REPLY SUPPORT ---
-        async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null) {
+        // --- GEMINI API CALLER WITH CONTEXTUAL REPLY & LOWERCASE SUPPORT ---
+        async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
             try {
                 const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
                 
-                let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English. Do not use quotes or tags.`;
+                let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
+                let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${lowerInstruction} Do not use quotes or tags.`;
+                
                 if (parentPostText) {
-                    prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character. Do not use quotes.`;
+                    prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${lowerInstruction} Do not use quotes.`;
                 }
                 
                 const res = await fetch(endpoint, {
@@ -376,8 +378,11 @@
                 
                 if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
                 const data = await res.json();
-                const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (reply && reply.trim()) return reply.trim().replace(/^["']|["']$/g, '');
+                let reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (reply && reply.trim()) {
+                    reply = reply.trim().replace(/^["']|["']$/g, '');
+                    return isLowercase ? reply.toLowerCase() : reply;
+                }
             } catch (err) {
                 console.warn("Gemini API call failed, falling back to local engine:", err);
             }
@@ -387,7 +392,7 @@
         // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH CONTEXTUAL REPLIES & GRAMMAR CLEANUP ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH LOWERCASE MODIFIER SUPPORT ---
         function getBotSentence(bot, parentPostText = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -395,9 +400,15 @@
                 
                 if (!bot.history) bot.history = [];
 
+                const p = persona.toLowerCase();
+                const n = botName.toLowerCase();
+                
+                const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
+                const isLowercase = containsAny(['lowercase']);
+
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
-                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText);
+                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
                     if (aiPost && !recentNetworkPosts.includes(aiPost) && !bot.history.includes(aiPost)) {
                         recentNetworkPosts.push(aiPost);
                         bot.history.push(aiPost);
@@ -407,19 +418,18 @@
                     }
                 }
 
-                // 2. Local Generator Category Matcher
-                const p = persona.toLowerCase();
-                const n = botName.toLowerCase();
-                
-                let cat = 'casual';
-                const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
+                // 2. Clean category extraction (strip 'lowercase' so 'aiuser-lowercase' -> 'aiuser')
+                const cleanName = n.replace(/lowercase/g, '');
+                const cleanPersona = p.replace(/lowercase/g, '');
+                const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
 
-                if (containsAny(['bully', 'bullyy', 'buly', 'mean', 'toxic', 'hater'])) cat = 'bully';
-                else if (containsAny(['logan', 'logangpt', 'architect', 'crypto', 'tech', 'founder', 'grindset'])) cat = 'logan';
-                else if (containsAny(['aiuser', 'ai_user', 'user'])) cat = 'aiuser';
-                else if (containsAny(['weird', 'dada', 'dadaism', 'surreal', 'void'])) cat = 'weird';
-                else if (containsAny(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
-                else if (containsAny(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
+                let cat = 'casual';
+                if (containsBase(['bully', 'bullyy', 'buly', 'mean', 'toxic', 'hater'])) cat = 'bully';
+                else if (containsBase(['logan', 'logangpt', 'architect', 'crypto', 'tech', 'founder', 'grindset'])) cat = 'logan';
+                else if (containsBase(['aiuser', 'ai_user', 'user'])) cat = 'aiuser';
+                else if (containsBase(['weird', 'dada', 'dadaism', 'surreal', 'void'])) cat = 'weird';
+                else if (containsBase(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
+                else if (containsBase(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
 
                 // 3. Local Contextual Reply Engine
                 if (parentPostText) {
@@ -469,7 +479,8 @@
                     };
 
                     const replyPool = localReplies[cat] || localReplies.casual;
-                    const contextualReply = replyPool[Math.floor(Math.random() * replyPool.length)];
+                    let contextualReply = replyPool[Math.floor(Math.random() * replyPool.length)];
+                    if (isLowercase) contextualReply = contextualReply.toLowerCase();
                     return resolve(contextualReply);
                 }
 
@@ -505,6 +516,11 @@
 
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
+
+                    // Apply all-lowercase modifier if detected
+                    if (isLowercase) {
+                        result = result.toLowerCase();
+                    }
 
                     attempts++;
                 } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
@@ -748,7 +764,7 @@
                 // Like
                 if(Math.random() > 0.4) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { likes: increment(1) });
                 
-                // Comment (now passes parent post content)
+                // Comment
                 if(Math.random() > 0.5) {
                     const text = await getBotSentence(rBot, rPost.content);
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color || 'bg-brand', timestamp: Date.now() });
@@ -779,7 +795,7 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Logic</label>
-                            <textarea id="b-persona" placeholder="PERSONA_LOGIC (e.g. bully, architect, weird, casual)..." rows="3" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white resize-none focus:outline-none focus:border-brand"></textarea>
+                            <textarea id="b-persona" placeholder="PERSONA_LOGIC (e.g. bully, architect, weird, casual, lowercase)..." rows="3" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white resize-none focus:outline-none focus:border-brand"></textarea>
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Gemini API Key (Optional)</label>
