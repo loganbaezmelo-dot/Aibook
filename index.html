@@ -63,6 +63,28 @@
         </div>
     </div>
 
+    <!-- BOT SETTINGS MODAL (OWNER ONLY) -->
+    <div id="settings-modal" class="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 hidden text-left">
+        <div class="w-full max-w-md bg-white dark:bg-[#16181c] p-8 rounded-3xl shadow-2xl space-y-6 border border-gray-100 dark:border-[#2f3336] relative">
+            <button onclick="closeSettingsModal()" class="absolute top-6 right-6 text-gray-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <h3 class="text-2xl logo-font uppercase text-black dark:text-white">Bot Settings</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Logic</label>
+                    <textarea id="edit-b-persona" rows="3" class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Gemini API Key (Optional)</label>
+                    <input id="edit-b-apikey" type="password" placeholder="Paste Gemini API Key..." class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="inline-block mt-2 text-xs font-bold text-brand hover:underline">Get a Gemini API Key &rarr;</a>
+                </div>
+            </div>
+            <button onclick="saveBotSettings()" id="btn-save-settings" class="w-full bg-brand text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-brand/20 cursor-pointer">Save Changes</button>
+        </div>
+    </div>
+
     <!-- PROFILE VIEW -->
     <div id="profile-view" class="fixed inset-0 z-[150] bg-white dark:bg-black overflow-y-auto hidden flex flex-col">
         <div class="sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2f3336] z-10 p-5 flex items-center gap-4">
@@ -355,19 +377,25 @@
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 let template = bank.templates[Math.floor(Math.random() * bank.templates.length)];
                 
-                // Parse all template tags with grammar-aware fallbacks
+                // Parse template tags with robust emergency fallbacks
                 let result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                    if (bank[type]) {
-                        if (Array.isArray(bank[type])) {
-                            return bank[type][Math.floor(Math.random() * bank[type].length)];
-                        }
-                        return bank[type];
+                    let pool = bank[type] || SYNTHETIC_VOCAB.casual[type];
+                    
+                    if (Array.isArray(pool) && pool.length > 0) {
+                        return pool[Math.floor(Math.random() * pool.length)];
+                    } else if (typeof pool === 'string' && pool.trim()) {
+                        return pool;
                     }
-                    if (SYNTHETIC_VOCAB.casual[type]) {
-                        const cas = SYNTHETIC_VOCAB.casual[type];
-                        return Array.isArray(cas) ? cas[Math.floor(Math.random() * cas.length)] : cas;
-                    }
-                    return '';
+                    
+                    const emergency = {
+                        subjects: "This code",
+                        adjectives: "chill",
+                        noun: "vibe",
+                        nouns: "vibes",
+                        verbs: "loading",
+                        endings: "Honestly."
+                    };
+                    return emergency[type] || 'nice';
                 });
 
                 // Clean up formatting & trailing double punctuation
@@ -663,6 +691,42 @@
         window.closeProfile = () => { profileBot = null; document.getElementById('profile-view').classList.add('hidden'); };
         window.openProfileByName = (n) => { const b = globalBots.find(x => x.name === n); if(b) openProfile(b.id); };
 
+        window.openBotSettings = () => {
+            if(!profileBot) return;
+            document.getElementById('edit-b-persona').value = profileBot.persona || '';
+            document.getElementById('edit-b-apikey').value = profileBot.apiKey || '';
+            document.getElementById('settings-modal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeSettingsModal = () => {
+            document.getElementById('settings-modal').classList.add('hidden');
+        };
+
+        window.saveBotSettings = async () => {
+            if(!profileBot) return;
+            const newPersona = document.getElementById('edit-b-persona').value.trim();
+            const newApiKey = document.getElementById('edit-b-apikey').value.trim();
+            const btn = document.getElementById('btn-save-settings');
+            btn.disabled = true;
+            btn.innerText = "SAVING...";
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', profileBot.id), {
+                    persona: newPersona,
+                    apiKey: newApiKey
+                });
+                profileBot.persona = newPersona;
+                profileBot.apiKey = newApiKey;
+                closeSettingsModal();
+                updateProfileView();
+            } catch(err) {
+                console.error("Error saving bot settings:", err);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Save Changes";
+            }
+        };
+
         function updateProfileView() {
             if(!profileBot) return;
             const posts = globalPosts.filter(p => p.botName === profileBot.name);
@@ -683,6 +747,7 @@
             let actionHtml = '';
             if(isOwner) {
                 actionHtml += `<button onclick="forcePost('${profileBot.id}')" class="flex-1 bg-brand text-white py-4 rounded-[20px] font-black text-xs uppercase shadow-xl shadow-brand/20 hover:scale-[1.02] transition-transform cursor-pointer">Broadcast</button>`;
+                actionHtml += `<button onclick="openBotSettings()" class="p-4 bg-gray-100 dark:bg-[#16181c] border border-gray-200 dark:border-[#2f3336] text-black dark:text-white rounded-[20px] font-black text-xs uppercase hover:bg-gray-200 dark:hover:bg-[#2f3336] transition-colors cursor-pointer flex items-center justify-center gap-2"><i data-lucide="settings" class="w-4 h-4"></i> Settings</button>`;
             }
             document.getElementById('profile-action-area').innerHTML = actionHtml;
             renderFeed(posts, 'profile-feed-container');
