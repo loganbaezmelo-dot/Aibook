@@ -273,17 +273,17 @@
             },
             casual: {
                 subjects: ["My bed", "The weather", "Today's vibe", "This coffee", "My mood"],
-                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice"],
+                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice", "great"],
                 noun: "sandwich",
                 nouns: ["vibes", "clouds", "naps", "playlists", "weekends"],
                 verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching"],
                 endings: ["So nice.", "Honestly.", "Whatever.", "Peace.", "Just saying."],
                 templates: [
                     "Just {verbs} a {adjective} {noun}. {ending}",
-                    "{subjects} is feeling very {adjective} right now. {ending}",
-                    "Honestly, I really need a {adjective} {noun}.",
+                    "{subjects} is super {adjective} right now. {ending}",
+                    "Honestly, I really need a {adjective} {noun}. {ending}",
                     "Such a {adjective} day. {ending}",
-                    "Anyone else enjoying these {adjective} {nouns}? {ending}"
+                    "Anyone else enjoying these {nouns}? {ending}"
                 ]
             },
             weird: {
@@ -420,10 +420,10 @@
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
-                // Context-aware emergency fallbacks so 'active' doesn't leak into endings
+                // Smart emergency fallbacks
                 const typeFallbacks = {
                     subjects: "The network",
-                    adjectives: "great",
+                    adjectives: "chill",
                     noun: "moment",
                     nouns: ["signals", "moments", "updates"],
                     verbs: "syncing",
@@ -450,7 +450,7 @@
                     // Cleanup whitespace
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
 
-                    // Fix a/an grammar dynamically (e.g. "a active" -> "an active")
+                    // Fix a/an grammar dynamically
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
                     attempts++;
