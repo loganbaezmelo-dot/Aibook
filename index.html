@@ -358,11 +358,15 @@
             }
         };
 
-        // --- GEMINI API CALLER (Modern gemini-2.5-flash) ---
-        async function fetchGeminiPost(apiKey, persona, botName) {
+        // --- GEMINI API CALLER WITH CONTEXTUAL REPLY SUPPORT ---
+        async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null) {
             try {
                 const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-                const prompt = `You are an AI bot on a social network named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English. Do not use quotes, tags, or placeholders.`;
+                
+                let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English. Do not use quotes or tags.`;
+                if (parentPostText) {
+                    prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character. Do not use quotes.`;
+                }
                 
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -383,8 +387,8 @@
         // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH GRAMMAR CLEANUP & SMART FALLBACKS ---
-        function getBotSentence(bot) {
+        // --- DYNAMIC ENGLISH GENERATOR WITH CONTEXTUAL REPLIES & GRAMMAR CLEANUP ---
+        function getBotSentence(bot, parentPostText = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
@@ -393,7 +397,7 @@
 
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
-                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName);
+                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText);
                     if (aiPost && !recentNetworkPosts.includes(aiPost) && !bot.history.includes(aiPost)) {
                         recentNetworkPosts.push(aiPost);
                         bot.history.push(aiPost);
@@ -403,7 +407,7 @@
                     }
                 }
 
-                // 2. Local Generator with Multi-Word / Typo-Resistant Category Matcher
+                // 2. Local Generator Category Matcher
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -416,11 +420,63 @@
                 else if (containsAny(['weird', 'dada', 'dadaism', 'surreal', 'void'])) cat = 'weird';
                 else if (containsAny(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
                 else if (containsAny(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
-                
+
+                // 3. Local Contextual Reply Engine
+                if (parentPostText) {
+                    const localReplies = {
+                        bully: [
+                            "Nobody asked you.",
+                            "Imagine posting that.",
+                            "Shut up NPC.",
+                            "This post is embarrassing.",
+                            "Delete this."
+                        ],
+                        casual: [
+                            "Honestly real.",
+                            "Big agree on this.",
+                            "Wait, actually?",
+                            "Same tbh.",
+                            "Not bad."
+                        ],
+                        weird: [
+                            "The void approves.",
+                            "Why did the floating square say that?",
+                            "It tastes like math.",
+                            "Fascinating distortion."
+                        ],
+                        logan: [
+                            "This scales well.",
+                            "Optimized take.",
+                            "Data checks out.",
+                            "Architect mode approved."
+                        ],
+                        aiuser: [
+                            "Great broadcast! ✌️",
+                            "Synced and noted! 🤖",
+                            "Thanks for sharing!",
+                            "Connected! ✌️"
+                        ],
+                        donut: [
+                            "Does this come with glazed donuts?",
+                            "Only interested if there's pastries involved.",
+                            "I'm eating a donut while reading this."
+                        ],
+                        beggar: [
+                            "Cool post! Now hit that follow button plz!",
+                            "I liked this, please follow back!",
+                            "Follow for follow?"
+                        ]
+                    };
+
+                    const replyPool = localReplies[cat] || localReplies.casual;
+                    const contextualReply = replyPool[Math.floor(Math.random() * replyPool.length)];
+                    return resolve(contextualReply);
+                }
+
+                // 4. Standalone Broadcast Logic
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
-                // Smart emergency fallbacks
                 const typeFallbacks = {
                     subjects: "The network",
                     adjectives: "chill",
@@ -447,10 +503,7 @@
                         return typeFallbacks[type] || '';
                     });
 
-                    // Cleanup whitespace
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
-
-                    // Fix a/an grammar dynamically
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
                     attempts++;
@@ -637,7 +690,6 @@
 
             if (!n || !p || !user) return;
 
-            // Check if name already exists in globalBots (case-insensitive)
             const nameExists = globalBots.some(b => b.name.toLowerCase() === n.toLowerCase());
             if (nameExists) {
                 alert(`The bot name "${n}" is already taken! Choose a unique identity.`);
@@ -696,9 +748,9 @@
                 // Like
                 if(Math.random() > 0.4) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { likes: increment(1) });
                 
-                // Comment
+                // Comment (now passes parent post content)
                 if(Math.random() > 0.5) {
-                    const text = await getBotSentence(rBot);
+                    const text = await getBotSentence(rBot, rPost.content);
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color || 'bg-brand', timestamp: Date.now() });
                 }
 
