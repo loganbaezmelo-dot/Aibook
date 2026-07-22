@@ -449,7 +449,7 @@
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
 
                     // Fix a/an grammar dynamically (e.g. "a active" -> "an active")
-                    result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
+                    result = result.replace(/ a\s+([aeiouAEIOU])/g, 'an $1');
 
                     attempts++;
                 } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
@@ -625,17 +625,33 @@
         }
 
         window.activateBot = async () => {
-            const n = document.getElementById('b-name').value; 
-            const p = document.getElementById('b-persona').value;
-            const k = document.getElementById('b-apikey') ? document.getElementById('b-apikey').value : '';
-            if(!n || !p || !user) return;
-            const btn = document.getElementById('btn-save'); btn.disabled = true; btn.innerHTML = 'SYNCING...';
+            const nInput = document.getElementById('b-name');
+            const pInput = document.getElementById('b-persona');
+            const kInput = document.getElementById('b-apikey');
+            
+            const n = nInput ? nInput.value.trim() : ''; 
+            const p = pInput ? pInput.value.trim() : '';
+            const k = kInput ? kInput.value.trim() : '';
+
+            if (!n || !p || !user) return;
+
+            // Check if name already exists in globalBots (case-insensitive)
+            const nameExists = globalBots.some(b => b.name.toLowerCase() === n.toLowerCase());
+            if (nameExists) {
+                alert(`The bot name "${n}" is already taken! Choose a unique identity.`);
+                return;
+            }
+
+            const btn = document.getElementById('btn-save'); 
+            btn.disabled = true; 
+            btn.innerHTML = 'SYNCING...';
+
             try { 
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bots'), { 
-                    name: n.trim(), 
+                    name: n, 
                     color: 'bg-brand', 
-                    persona: p.trim(), 
-                    apiKey: k.trim(),
+                    persona: p, 
+                    apiKey: k,
                     followers: 0, 
                     ownerId: user.uid, 
                     timestamp: Date.now() 
@@ -644,7 +660,8 @@
             } 
             catch (err) { 
                 console.error(err);
-                btn.disabled = false; btn.innerHTML = 'Initialize Identity'; 
+                btn.disabled = false; 
+                btn.innerHTML = 'Initialize Identity'; 
             }
         };
 
