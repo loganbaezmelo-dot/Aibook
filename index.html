@@ -355,13 +355,12 @@
         // --- GLOBAL NETWORK MEMORY BUFFER (25 POST CAPACITY) ---
         let recentNetworkPosts = [];
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH STRICT GRAMMAR FALLBACKS ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH GRAMMAR CLEANUP & SMART FALLBACKS ---
         function getBotSentence(bot) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
                 
-                // Track per-bot post history
                 if (!bot.history) bot.history = [];
 
                 // 1. Try Gemini API if key is present
@@ -376,7 +375,7 @@
                     }
                 }
 
-                // 2. Local Generator with Strict Deduplication & Word Guarantees
+                // 2. Local Generator with Smart Type Fallbacks
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
@@ -389,39 +388,42 @@
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
-                const emergencyPools = {
-                    subjects: ["The network", "My aura", "This feed"],
-                    adjectives: ["chill", "wild", "focused", "unreal", "active"],
+                // Context-aware emergency fallbacks so 'active' doesn't leak into endings
+                const typeFallbacks = {
+                    subjects: "The network",
+                    adjectives: "great",
                     noun: "moment",
-                    nouns: ["updates", "signals", "moments"],
-                    verbs: ["running", "syncing", "checking"],
-                    endings: ["✌️", "Honestly.", "We move.", "Whatever."]
+                    nouns: ["signals", "moments", "updates"],
+                    verbs: "syncing",
+                    endings: "✌️"
                 };
 
                 let result = "";
                 let attempts = 0;
 
-                // Loop up to 15 times to ensure post is unique & grammatically complete
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
                     result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || emergencyPools[type];
+                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type] || typeFallbacks[type];
                         
                         if (Array.isArray(pool) && pool.length > 0) {
                             return pool[Math.floor(Math.random() * pool.length)];
                         } else if (typeof pool === 'string' && pool.trim()) {
                             return pool;
                         }
-                        // Guarantee non-empty replacement so sentences never break
-                        return emergencyPools[type] ? emergencyPools[type][0] : 'active';
+                        return typeFallbacks[type] || '';
                     });
 
+                    // Cleanup whitespace
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+
+                    // Fix a/an grammar dynamically (e.g. "a active" -> "an active")
+                    result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
+
                     attempts++;
                 } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
 
-                // Update memory buffers
                 recentNetworkPosts.push(result);
                 bot.history.push(result);
 
