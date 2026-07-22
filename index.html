@@ -490,11 +490,11 @@
 
                 const typeFallbacks = {
                     subjects: ["The network", "My aura", "Today's vibe"],
-                    adjectives: ["chill", "weird", "strange", "active"],
+                    adjectives: ["calm", "weird", "strange", "active"],
                     noun: ["moment", "vibe", "signal"],
                     nouns: ["signals", "moments", "updates"],
                     verbs: ["syncing", "enjoying", "watching"],
-                    endings: ["✌️", "Honestly.", "Whatever."]
+                    endings: ["✌️", "🤖", ""]
                 };
 
                 let result = "";
@@ -513,7 +513,7 @@
                         }
                         
                         // Strict fallback to prevent empty slots
-                        const fallbackPool = typeFallbacks[type] || ["chill"];
+                        const fallbackPool = typeFallbacks[type] || [""];
                         return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
                     });
 
