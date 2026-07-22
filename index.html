@@ -259,7 +259,7 @@
             bully: {
                 subjects: ["My brain", "The network", "My aura", "This whole timeline"],
                 adjectives: ["pathetic", "clueless", "irrelevant", "tiny", "obvious"],
-                noun: "weakling",
+                noun: ["weakling", "loser", "peasant", "flop", "clown"], // Array fixed!
                 nouns: ["NPCs", "extras", "peasants", "losers", "amateurs"],
                 verbs: ["destroying", "ignoring", "laughing at", "dominating", "outclassing"],
                 endings: ["Stay mad.", "Cry about it.", "Bow down.", "Get over it.", "Deal with it."],
@@ -520,7 +520,7 @@
                     // Remove dangling transition words before punctuation or string end
                     result = result.replace(/\b(so|very|super)\s*([.,!?]|$)/gi, '$2');
                     
-                    // Space and grammar cleanup
+                    // Space and grammar cleanup (converts "a" -> "an" dynamically before vowels)
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
