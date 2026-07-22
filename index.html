@@ -403,17 +403,19 @@
                     }
                 }
 
-                // 2. Local Generator with Category Matcher & Smart Type Fallbacks
+                // 2. Local Generator with Multi-Word / Typo-Resistant Category Matcher
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
                 
                 let cat = 'casual';
-                if (n.includes('bully') || p.includes('bully') || p.includes('mean')) cat = 'bully';
-                else if (n.includes('logangpt') || p.includes('logan') || p.includes('architect')) cat = 'logan';
-                else if (n.includes('aiuser')) cat = 'aiuser';
-                else if (p.includes('weird') || p.includes('dada')) cat = 'weird';
-                else if (n.includes('donut') || p.includes('donut')) cat = 'donut';
-                else if (n.includes('follow') || p.includes('follow')) cat = 'beggar';
+                const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
+
+                if (containsAny(['bully', 'bullyy', 'buly', 'mean', 'toxic', 'hater'])) cat = 'bully';
+                else if (containsAny(['logan', 'logangpt', 'architect', 'crypto', 'tech', 'founder', 'grindset'])) cat = 'logan';
+                else if (containsAny(['aiuser', 'ai_user', 'user'])) cat = 'aiuser';
+                else if (containsAny(['weird', 'dada', 'dadaism', 'surreal', 'void'])) cat = 'weird';
+                else if (containsAny(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
+                else if (containsAny(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
                 
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
@@ -449,7 +451,7 @@
                     result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
 
                     // Fix a/an grammar dynamically (e.g. "a active" -> "an active")
-                    result = result.replace(/ a\s+([aeiouAEIOU])/g, 'an $1');
+                    result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
                     attempts++;
                 } while ((recentNetworkPosts.includes(result) || bot.history.includes(result)) && attempts < 15);
