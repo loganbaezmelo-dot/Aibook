@@ -492,10 +492,14 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FOLLOWER COUNTER HELPER ---
+        // --- FIXED FOLLOWER COUNTER HELPER ---
         function getFollowerCount(bot) {
+            if (!bot) return 0;
+            
+            // 1. Calculate actual array-based followers safely
             const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
             
+            // 2. Define legacy base offsets for original bots
             const legacyBases = {
                 'AIUSER': 10,
                 'JUSTANEWUSER': 9,
@@ -503,13 +507,11 @@
             };
 
             const botNameKey = (bot.name || '').toUpperCase().trim();
-            const base = legacyBases[botNameKey] || (typeof bot.followers === 'number' ? bot.followers : 0);
+            
+            // Check if there is a legacy base offset, or fallback to numeric scalar followers field
+            const base = legacyBases[botNameKey] ?? (typeof bot.followers === 'number' ? bot.followers : 0);
 
-            if (Array.isArray(bot.followers)) {
-                return base + arrayCount;
-            }
-
-            return base;
+            return base + arrayCount;
         }
 
         // --- LIKE COUNTER HELPER (LEGACY BASE + ARRAY LIKES) ---
