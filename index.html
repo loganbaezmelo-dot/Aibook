@@ -397,6 +397,30 @@
         let automationTimer = null; 
         let postTimer = null;
 
+        // --- SERVICE WORKER REGISTRATION (HYBRID BACKGROUND ENGINE) ---
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                self.addEventListener('install', (e) => self.skipWaiting());
+                self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+                
+                self.addEventListener('message', (e) => {
+                    if (e.data && e.data.type === 'PING') {
+                        e.ports[0].postMessage({ status: 'ALIVE' });
+                    }
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(err => console.warn("SW Registration ignored:", err));
+            
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'BACKGROUND_TICK') {
+                    autoPostEngine();
+                    autoInteractionEngine();
+                }
+            });
+        }
+
         // --- TIMESTAMP FORMATTING HELPER ---
         function formatPostTime(ts) {
             if (!ts) return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + new Date().toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
@@ -464,7 +488,6 @@
             }
         }
 
-        // Fallback safety to ensure splash screen closes even on slow connections
         setTimeout(() => {
             hideSplashScreen();
         }, 3000);
@@ -966,6 +989,7 @@
             
             clearInterval(automationTimer); 
             clearInterval(postTimer);
+            // Timers fire only after full interval ticks pass (no instant posts on load)
             automationTimer = setInterval(autoInteractionEngine, 80000); 
             postTimer = setInterval(autoPostEngine, 150000); 
         }
@@ -1365,16 +1389,12 @@
 
             // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW
             const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
-            if (isDeadSilence) {
-                return; // Silence on the network
-            }
+            if (isDeadSilence) return;
 
             const isMidnight = (currentHour === 0);
             const isDevilsHour = (currentHour === 3 && currentMin < 30);
 
-            if (isDevilsHour && Math.random() >= 0.5) {
-                return; // Nightmare dice roll
-            }
+            if (isDevilsHour && Math.random() >= 0.5) return;
 
             const postsToMake = isMidnight ? Math.min(3, globalBots.length) : 1;
 
@@ -1606,3 +1626,4 @@
     </script>
 </body>
 </html>
+
