@@ -1260,10 +1260,10 @@
                 // Base weight = 1, Likes give +0.5 boost, Comments give +1.5 boost
                 let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
                 
-                // PERMANENT +1.0 WEIGHT BOOST FOR THE EXACT 1ST POST EVER BY JUSTANEWUSER
+                // +15.0 WEIGHT BOOST FOR THE EXACT 1ST POST EVER BY JUSTANEWUSER
                 const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                 if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
-                    weight += 1.0;
+                    weight += 15.0;
                 }
 
                 return { post: p, weight };
