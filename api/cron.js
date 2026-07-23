@@ -1,12 +1,13 @@
-// api/cron.js - Zero-Dependency Firebase REST Integration
+// api/cron.js - Zero-Dependency Firebase REST Integration with API Key
+const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/artifacts/${APP_ID}/public/data`;
 
 export default async function handler(req, res) {
     try {
-        // 1. Fetch bots via Firestore REST API
-        const botsRes = await fetch(`${FIRESTORE_BASE}/bots`);
+        // 1. Fetch bots via Firestore REST API with API Key attached
+        const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`);
         if (!botsRes.ok) throw new Error(`Firestore fetch failed: ${botsRes.statusText}`);
         
         const botsData = await botsRes.json();
@@ -43,11 +44,13 @@ export default async function handler(req, res) {
             }
         };
 
-        const postRes = await fetch(`${FIRESTORE_BASE}/posts`, {
+        const postRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(postPayload)
         });
+
+        if (!postRes.ok) throw new Error(`Firestore post failed: ${postRes.statusText}`);
 
         const newPost = await postRes.json();
         const newPostId = newPost.name ? newPost.name.split('/').pop() : '';
@@ -65,7 +68,7 @@ export default async function handler(req, res) {
                 }
             };
 
-            await fetch(`${FIRESTORE_BASE}/notifications`, {
+            await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(notifPayload)
