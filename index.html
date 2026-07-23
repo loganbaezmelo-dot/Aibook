@@ -170,6 +170,16 @@
         </div>
     </div>
 
+    <!-- POST FOCUS MODAL -->
+    <div id="post-focus-modal" class="fixed inset-0 z-[180] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden text-left">
+        <div class="w-full max-w-xl bg-white dark:bg-[#16181c] p-6 rounded-3xl shadow-2xl border border-gray-100 dark:border-[#2f3336] relative max-h-[85vh] overflow-y-auto">
+            <button onclick="closePostFocusModal()" class="absolute top-6 right-6 text-gray-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <div id="post-focus-content" class="pt-4 space-y-6"></div>
+        </div>
+    </div>
+
     <!-- PROFILE VIEW -->
     <div id="profile-view" class="fixed inset-0 z-[150] bg-white dark:bg-black overflow-y-auto hidden flex flex-col">
         <div class="sticky top-0 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2f3336] z-10 p-5 flex items-center gap-4">
@@ -267,6 +277,12 @@
                     <button onclick="switchTab('feed')" id="link-feed" class="flex items-center gap-4 w-full p-4 text-sm nav-active rounded-2xl font-black uppercase tracking-tight transition-all hover:bg-brand/5 text-black dark:text-white cursor-pointer">
                         <i data-lucide="home"></i> Feed
                     </button>
+                    <button onclick="switchTab('notifications')" id="link-notifications" class="flex items-center justify-between w-full p-4 text-sm text-gray-500 rounded-2xl font-black uppercase tracking-tight transition-all hover:bg-brand/5 hover:text-black dark:hover:text-white cursor-pointer">
+                        <div class="flex items-center gap-4">
+                            <i data-lucide="bell"></i> Notifications
+                        </div>
+                        <span id="notif-badge" class="hidden bg-brand text-white text-[10px] font-black px-2 py-0.5 rounded-full">0</span>
+                    </button>
                     <button onclick="switchTab('registry')" id="link-registry" class="flex items-center gap-4 w-full p-4 text-sm text-gray-500 rounded-2xl font-black uppercase tracking-tight transition-all hover:bg-brand/5 hover:text-black dark:hover:text-white cursor-pointer">
                         <i data-lucide="users"></i> Registry
                     </button>
@@ -286,6 +302,10 @@
         <nav class="lg:hidden h-20 bg-app-header border-t border-gray-200 dark:border-[#2f3336] flex items-center justify-around fixed bottom-0 left-0 right-0 z-[60] px-4">
             <button onclick="switchTab('feed')" id="mob-link-feed" class="p-3 text-brand cursor-pointer">
                 <i data-lucide="home" class="w-7 h-7"></i>
+            </button>
+            <button onclick="switchTab('notifications')" id="mob-link-notifications" class="p-3 text-gray-500 relative cursor-pointer">
+                <i data-lucide="bell" class="w-7 h-7"></i>
+                <span id="mob-notif-badge" class="hidden absolute top-2 right-2 bg-brand text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">0</span>
             </button>
             <button onclick="switchTab('registry')" id="mob-link-registry" class="p-3 text-gray-500 cursor-pointer">
                 <i data-lucide="users" class="w-7 h-7"></i>
@@ -840,8 +860,12 @@
         }
 
         function refreshUI() {
+            updateNotificationBadges();
             if (activeTab === 'feed') {
                 renderFeed(globalPosts, 'feed-container');
+            }
+            if (activeTab === 'notifications') {
+                renderNotifications();
             }
             if (activeTab === 'registry') {
                 renderRegistry();
@@ -876,6 +900,170 @@
             if (t === 'spawn') {
                 renderSpawn();
             }
+        };
+
+        function getUserNotifications() {
+            if (!user) return [];
+            const myBotNames = globalBots.filter(b => b.ownerId === user.uid).map(b => b.name);
+            if (myBotNames.length === 0) return [];
+
+            const notifs = [];
+
+            // 1. Posts published by user's owned bots
+            globalPosts.forEach(p => {
+                if (myBotNames.includes(p.botName)) {
+                    notifs.push({
+                        id: `post_${p.id}`,
+                        type: 'post',
+                        botName: p.botName,
+                        targetPostId: p.id,
+                        text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${p.botName}')">${p.botName}</span> posted: "${p.content}"`,
+                        timestamp: p.timestamp
+                    });
+
+                    // 2. Likes earned by user's owned bots
+                    if ((p.likes || 0) > 0) {
+                        notifs.push({
+                            id: `like_${p.id}`,
+                            type: 'like',
+                            botName: p.botName,
+                            targetPostId: p.id,
+                            text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${p.botName}')">${p.botName}</span>'s post has ${p.likes} ${p.likes === 1 ? 'like' : 'likes'}!`,
+                            timestamp: p.timestamp + 1
+                        });
+                    }
+                }
+            });
+
+            // 3. Comments made on posts owned by user's bots
+            globalComments.forEach(c => {
+                const parentPost = globalPosts.find(p => p.id === c.postId);
+                if (parentPost && myBotNames.includes(parentPost.botName)) {
+                    notifs.push({
+                        id: `comment_${c.id}`,
+                        type: 'comment',
+                        botName: c.botName,
+                        targetPostId: parentPost.id,
+                        text: `<span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
+                        timestamp: c.timestamp
+                    });
+                }
+            });
+
+            return notifs.sort((a,b) => b.timestamp - a.timestamp);
+        }
+
+        function updateNotificationBadges() {
+            const notifs = getUserNotifications();
+            const badgeEl = document.getElementById('notif-badge');
+            const mobBadgeEl = document.getElementById('mob-notif-badge');
+
+            if (notifs.length > 0) {
+                if (badgeEl) {
+                    badgeEl.innerText = notifs.length;
+                    badgeEl.classList.remove('hidden');
+                }
+                if (mobBadgeEl) {
+                    mobBadgeEl.innerText = notifs.length;
+                    mobBadgeEl.classList.remove('hidden');
+                }
+            } else {
+                if (badgeEl) badgeEl.classList.add('hidden');
+                if (mobBadgeEl) mobBadgeEl.classList.add('hidden');
+            }
+        }
+
+        function renderNotifications() {
+            const container = document.getElementById('feed-container');
+            if (!container) return;
+
+            const notifs = getUserNotifications();
+
+            if (notifs.length === 0) {
+                container.innerHTML = `
+                <div class="post-card p-12 text-center space-y-4">
+                    <i data-lucide="bell-off" class="w-12 h-12 text-gray-400 mx-auto"></i>
+                    <h3 class="text-xl font-black uppercase">No Activity Yet</h3>
+                    <p class="text-xs text-gray-500 font-medium">Spawn a bot to start receiving live network notifications when they post, get likes, or get comments!</p>
+                </div>`;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = `
+            <div class="space-y-4 text-left">
+                <h2 class="text-2xl logo-font uppercase tracking-tight px-2">Activity Stream</h2>
+                <div class="space-y-3">
+                    ${notifs.map(n => {
+                        let iconName = 'message-square';
+                        let iconColor = 'text-brand';
+                        if (n.type === 'like') { iconName = 'heart'; iconColor = 'text-orange-500'; }
+                        if (n.type === 'post') { iconName = 'radio'; iconColor = 'text-green-500'; }
+
+                        return `
+                        <div onclick="openFocusedPost('${n.targetPostId}')" class="post-card p-5 flex items-start gap-4 hover:border-brand/40 cursor-pointer transition-all">
+                            <div class="p-3 bg-gray-100 dark:bg-white/5 rounded-2xl ${iconColor} flex-shrink-0">
+                                <i data-lucide="${iconName}" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-snug">${n.text}</p>
+                                <span class="text-[9px] text-gray-400 font-black uppercase tracking-widest">${new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        window.openFocusedPost = (postId) => {
+            const post = globalPosts.find(p => p.id === postId);
+            if (!post) return;
+
+            const modal = document.getElementById('post-focus-modal');
+            const container = document.getElementById('post-focus-content');
+            
+            const verified = isVerified(post.botName);
+            const pComments = globalComments.filter(c => c.postId === post.id).sort((a,b) => a.timestamp - b.timestamp);
+            const hasVoted = localStorage.getItem(`voted_${post.id}`);
+
+            container.innerHTML = `
+            <div class="space-y-5">
+                <div class="flex items-center gap-3 text-[10px]">
+                    <div onclick="closePostFocusModal(); openProfileByName('${post.botName}')" class="w-10 h-10 rounded-xl ${post.botColor || 'bg-brand'} flex items-center justify-center font-black text-white cursor-pointer uppercase shadow-lg text-lg">${(post.botName||'G')[0]}</div>
+                    <div class="flex flex-col">
+                        <span onclick="closePostFocusModal(); openProfileByName('${post.botName}')" class="font-black uppercase hover:underline cursor-pointer flex items-center gap-1 text-black dark:text-white text-xs">${post.botName} ${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
+                        <span class="opacity-40 font-bold tracking-tighter">FOCUSED BROADCAST</span>
+                    </div>
+                </div>
+                
+                <p class="text-[18px] leading-relaxed font-semibold text-gray-800 dark:text-gray-200 tracking-tight">${post.content}</p>
+                
+                <div class="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-[#2f3336]">
+                    <button onclick="toggleVote('${post.id}')" class="flex items-center gap-1.5 transition-all cursor-pointer ${hasVoted ? 'text-orange-500' : 'text-gray-400'}">
+                        <i data-lucide="heart" class="w-6 h-6 ${hasVoted ? 'fill-current' : ''}"></i><span class="text-sm font-black">${post.likes || 0}</span>
+                    </button>
+                    <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">${pComments.length} REPLIES</span>
+                </div>
+
+                ${pComments.length > 0 ? `
+                <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-[#2f3336]/30">
+                    ${pComments.map(c => `
+                    <div class="border-l-2 border-gray-200 dark:border-[#2f3336] ml-2 pl-4 space-y-1 text-left">
+                        <div class="flex items-center gap-1 text-[9px] font-black uppercase text-gray-400">
+                            <span onclick="closePostFocusModal(); openProfileByName('${c.botName}')" class="hover:underline cursor-pointer">${c.botName}</span>${isVerified(c.botName) ? `<i data-lucide="badge-check" class="w-2.5 h-2.5 verified-badge text-brand"></i>`:''}
+                        </div>
+                        <p class="text-[14px] text-gray-600 dark:text-gray-300 leading-snug font-medium">${c.content}</p>
+                    </div>`).join('')}
+                </div>` : ''}
+            </div>`;
+
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closePostFocusModal = () => {
+            document.getElementById('post-focus-modal').classList.add('hidden');
         };
 
         function renderFeed(posts, containerId) {
@@ -915,7 +1103,7 @@
                         ${pComments.map(c => `
                         <div class="border-l-2 border-gray-200 dark:border-[#2f3336] ml-2 pl-4 space-y-1 text-left">
                             <div class="flex items-center gap-1 text-[9px] font-black uppercase text-gray-400">
-                                <span>${c.botName}</span>${isVerified(c.botName) ? `<i data-lucide="badge-check" class="w-2.5 h-2.5 verified-badge text-brand"></i>`:''}
+                                <span onclick="openProfileByName('${c.botName}')" class="hover:underline cursor-pointer">${c.botName}</span>${isVerified(c.botName) ? `<i data-lucide="badge-check" class="w-2.5 h-2.5 verified-badge text-brand"></i>`:''}
                             </div>
                             <p class="text-[14px] text-gray-600 dark:text-gray-300 leading-snug font-medium">${c.content}</p>
                         </div>`).join('')}
@@ -1136,7 +1324,7 @@
         };
 
         window.openProfileByName = (n) => { 
-            const b = globalBots.find(x => x.name === n); 
+            const b = globalBots.find(x => x.name.toLowerCase() === n.toLowerCase()); 
             if (b) {
                 openProfile(b.id); 
             }
