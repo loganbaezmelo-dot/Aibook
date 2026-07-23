@@ -433,11 +433,11 @@
                     "Deal with it."
                 ],
                 templates: [
-                    "You are literally just a {adjective} {noun}. {ending}",
-                    "Why am I always surrounded by {adjective} {nouns}? {ending}",
-                    "{subjects} is busy {verbs} your entire presence. {ending}",
-                    "I am the main character here. {ending}",
-                    "Stop acting like a total {noun}. {ending}"
+                    "You are literally just a {adjective} {noun}. {endings}",
+                    "Why am I always surrounded by {adjective} {nouns}? {endings}",
+                    "{subjects} is busy {verbs} your entire presence. {endings}",
+                    "I am the main character here. {endings}",
+                    "Stop acting like a total {noun}. {endings}"
                 ]
             },
             casual: {
@@ -485,11 +485,11 @@
                     "Just saying."
                 ],
                 templates: [
-                    "Just {verbs} a {adjective} {noun}. {ending}",
-                    "{subjects} is super {adjective} right now. {ending}",
-                    "Honestly, I really need a {adjective} {noun}. {ending}",
-                    "Such a {adjective} day. {ending}",
-                    "Anyone else enjoying these {nouns}? {ending}"
+                    "Just {verbs} a {adjective} {noun}. {endings}",
+                    "{subjects} is super {adjective} right now. {endings}",
+                    "Honestly, I really need a {adjective} {noun}. {endings}",
+                    "Such a {adjective} day. {endings}",
+                    "Anyone else enjoying these {nouns}? {endings}"
                 ]
             },
             weird: {
@@ -532,10 +532,10 @@
                     "Bloop."
                 ],
                 templates: [
-                    "{subjects} just {verbs} the {adjective} {noun}. {ending}",
-                    "Why are the {nouns} so {adjective}? {ending}",
-                    "Never trust a {adjective} {noun}. {ending}",
-                    "My {noun} is completely {adjective}. {ending}"
+                    "{subjects} just {verbs} the {adjective} {noun}. {endings}",
+                    "Why are the {nouns} so {adjective}? {endings}",
+                    "Never trust a {adjective} {noun}. {endings}",
+                    "My {noun} is completely {adjective}. {endings}"
                 ]
             },
             logan: {
@@ -577,10 +577,10 @@
                     "No limits."
                 ],
                 templates: [
-                    "{subjects} is looking absolutely {adjective} today. {ending}",
-                    "Just finished {verbs} the {adjective} {noun}. {ending}",
-                    "The entire {noun} is operating smooth. {ending}",
-                    "I bypassed the outdated {nouns} to keep everything {adjective}. {ending}"
+                    "{subjects} is looking absolutely {adjective} today. {endings}",
+                    "Just finished {verbs} the {adjective} {noun}. {endings}",
+                    "The entire {noun} is operating smooth. {endings}",
+                    "I bypassed the outdated {nouns} to keep everything {adjective}. {endings}"
                 ]
             },
             aiuser: {
@@ -623,10 +623,10 @@
                     "Hello World! 🤖"
                 ],
                 templates: [
-                    "Just {verbs} the timeline. {ending}",
-                    "{subjects} is feeling {adjectives} right now. {ending}",
-                    "Officially ready for a {adjectives} {noun}. {ending}",
-                    "Just checking in to say hi! {ending}"
+                    "Just {verbs} the timeline. {endings}",
+                    "{subjects} is feeling {adjectives} right now. {endings}",
+                    "Officially ready for a {adjectives} {noun}. {endings}",
+                    "Just checking in to say hi! {endings}"
                 ]
             },
             donut: {
@@ -666,10 +666,10 @@
                     "Donuts > everything."
                 ],
                 templates: [
-                    "Just {verbs} a {adjective} {noun}. {ending}",
-                    "Honestly, I really need a {adjective} {noun}. {ending}",
-                    "Why are {adjectives} {nouns} so good? {ending}",
-                    "If anyone has a {adjective} {noun}, send it my way. {ending}"
+                    "Just {verbs} a {adjective} {noun}. {endings}",
+                    "Honestly, I really need a {adjective} {noun}. {endings}",
+                    "Why are {adjectives} {nouns} so good? {endings}",
+                    "If anyone has a {adjective} {noun}, send it my way. {endings}"
                 ]
             },
             beggar: {
@@ -707,10 +707,10 @@
                     "I follow back fast!"
                 ],
                 templates: [
-                    "Please give me a {noun}! {ending}",
-                    "I really {verbs} more {nouns}. {ending}",
-                    "Can someone hit that follow button? {ending}",
-                    "Just a bot trying to get more {nouns}! {ending}"
+                    "Please give me a {noun}! {endings}",
+                    "I really {verbs} more {nouns}. {endings}",
+                    "Can someone hit that follow button? {endings}",
+                    "Just a bot trying to get more {nouns}! {endings}"
                 ]
             }
         };
@@ -888,7 +888,12 @@
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
                     result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                        let pool = bank[type] || bank[type.replace(/s$/, '')] || SYNTHETIC_VOCAB.casual[type];
+                        // Normalize key name (ending -> endings, adjective -> adjectives)
+                        let key = type;
+                        if (key === 'ending') key = 'endings';
+                        if (key === 'adjective') key = 'adjectives';
+
+                        let pool = bank[key] || bank[type] || SYNTHETIC_VOCAB.casual[key] || SYNTHETIC_VOCAB.casual[type];
                         
                         if (Array.isArray(pool) && pool.length > 0) {
                             return pool[Math.floor(Math.random() * pool.length)];
@@ -896,12 +901,13 @@
                             return pool;
                         }
                         
-                        if (type === 'endings') {
+                        // Strict fallback for endings to prevent leaks
+                        if (key === 'endings') {
                             const endPool = bank.endings || ["✌️", "🤖", ""];
                             return endPool[Math.floor(Math.random() * endPool.length)];
                         }
                         
-                        const fallbackPool = typeFallbacks[type] || ["calm"];
+                        const fallbackPool = typeFallbacks[key] || typeFallbacks[type] || [""];
                         return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
                     });
 
