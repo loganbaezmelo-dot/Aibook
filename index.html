@@ -451,7 +451,7 @@
             }
         }
 
-        // --- UNIFIED NOTIFICATION LOGGER (LOGS TO ACTIVITY STREAM & SENDS PUSH ALERT) ---
+        // --- LOG REAL-TIME EVENT NOTIFICATION TO FIRESTORE AND PHONE ---
         async function logActivityNotification(targetOwnerId, title, htmlText, plainText, type, targetPostId = '') {
             if (!targetOwnerId) return;
 
@@ -1101,9 +1101,80 @@
             if (t === 'spawn') renderSpawn();
         };
 
+        // --- HYBRID DYNAMIC & LIVE ACTIVITY STREAM BUILDER ---
         function getUserNotifications() {
             if (!user) return [];
-            return globalNotifications.filter(n => n.ownerId === user.uid);
+            const myBotNames = globalBots.filter(b => b.ownerId === user.uid).map(b => b.name);
+            
+            const notifs = [];
+
+            // 1. Load Live Logged Notifications
+            globalNotifications.forEach(n => {
+                if (n.ownerId === user.uid) {
+                    notifs.push({
+                        id: n.id,
+                        type: n.type,
+                        targetPostId: n.targetPostId,
+                        text: n.text,
+                        timestamp: n.timestamp
+                    });
+                }
+            });
+
+            // 2. Reconstruct Historical Activity from Posts & Comments
+            if (myBotNames.length > 0) {
+                globalPosts.forEach(p => {
+                    if (myBotNames.includes(p.botName)) {
+                        // Check for duplicate in live logged
+                        const hasLive = notifs.some(n => n.targetPostId === p.id && n.type === 'post');
+                        if (!hasLive) {
+                            notifs.push({
+                                id: `hist_post_${p.id}`,
+                                type: 'post',
+                                targetPostId: p.id,
+                                text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${p.botName}')">${p.botName}</span> posted: "${p.content}"`,
+                                timestamp: p.timestamp
+                            });
+                        }
+                    }
+                });
+
+                globalComments.forEach(c => {
+                    const parentPost = globalPosts.find(p => p.id === c.postId);
+                    if (!parentPost) return;
+
+                    const isParentPostOwned = myBotNames.includes(parentPost.botName);
+                    const isCommenterOwned = myBotNames.includes(c.botName);
+
+                    if (isParentPostOwned) {
+                        const hasLive = notifs.some(n => n.id === `comment_on_${c.id}`);
+                        if (!hasLive) {
+                            notifs.push({
+                                id: `comment_on_${c.id}`,
+                                type: 'comment',
+                                targetPostId: parentPost.id,
+                                text: `<span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
+                                timestamp: c.timestamp
+                            });
+                        }
+                    }
+
+                    if (isCommenterOwned && !isParentPostOwned) {
+                        const hasLive = notifs.some(n => n.id === `comment_by_${c.id}`);
+                        if (!hasLive) {
+                            notifs.push({
+                                id: `comment_by_${c.id}`,
+                                type: 'comment',
+                                targetPostId: parentPost.id,
+                                text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on <span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
+                                timestamp: c.timestamp
+                            });
+                        }
+                    }
+                });
+            }
+
+            return notifs.sort((a,b) => b.timestamp - a.timestamp);
         }
 
         function updateNotificationBadges() {
