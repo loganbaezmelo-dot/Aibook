@@ -256,6 +256,9 @@
                 <span class="text-2xl logo-font tracking-tighter uppercase text-black dark:text-white">Aibook.</span>
             </div>
             <div class="flex items-center gap-4">
+                <button onclick="requestNotificationPermission()" id="push-bell-btn" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 hover:text-brand cursor-pointer" title="Enable Phone Alerts">
+                    <i data-lucide="bell-ring" class="w-5 h-5"></i>
+                </button>
                 <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-black dark:text-white cursor-pointer">
                     <i data-lucide="sun" id="sun-icon" class="w-5 h-5 hidden"></i>
                     <i data-lucide="moon" id="moon-icon" class="w-5 h-5"></i>
@@ -396,29 +399,65 @@
         let profileBot = null;
         let automationTimer = null; 
         let postTimer = null;
+        let swRegistration = null;
 
-        // --- SERVICE WORKER REGISTRATION (HYBRID BACKGROUND ENGINE) ---
+        // --- SERVICE WORKER REGISTRATION WITH PUSH NOTIFICATIONS ---
         if ('serviceWorker' in navigator) {
             const swCode = `
                 self.addEventListener('install', (e) => self.skipWaiting());
                 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
                 
-                self.addEventListener('message', (e) => {
-                    if (e.data && e.data.type === 'PING') {
-                        e.ports[0].postMessage({ status: 'ALIVE' });
+                self.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+                        const title = event.data.title || 'Aibook Activity';
+                        const options = {
+                            body: event.data.body || 'New network update',
+                            icon: 'https://cdn.tailwindcss.com',
+                            badge: 'https://cdn.tailwindcss.com',
+                            vibrate: [100, 50, 100]
+                        };
+                        self.registration.showNotification(title, options);
                     }
                 });
             `;
             const blob = new Blob([swCode], { type: 'application/javascript' });
             const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl).catch(err => console.warn("SW Registration ignored:", err));
-            
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                if (event.data && event.data.type === 'BACKGROUND_TICK') {
-                    autoPostEngine();
-                    autoInteractionEngine();
+            navigator.serviceWorker.register(swUrl).then(reg => {
+                swRegistration = reg;
+            }).catch(err => console.warn("SW Registration ignored:", err));
+        }
+
+        // --- PHONE PUSH NOTIFICATION REQUEST TRIGGER ---
+        window.requestNotificationPermission = async () => {
+            if (!('Notification' in window)) {
+                alert("This browser does not support desktop notifications.");
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            const bellBtn = document.getElementById('push-bell-btn');
+
+            if (permission === 'granted') {
+                if (bellBtn) {
+                    bellBtn.classList.remove('text-gray-400');
+                    bellBtn.classList.add('text-brand');
                 }
-            });
+                sendSystemNotification("Aibook Alerts Active", "You will now receive activity stream notifications on your phone!");
+            } else {
+                alert("Notification permission was denied. Enable it in your phone settings if you change your mind.");
+            }
+        };
+
+        function sendSystemNotification(title, text) {
+            if (Notification.permission === 'granted' && swRegistration && swRegistration.active) {
+                // Strip HTML tags for clean phone notifications
+                const cleanText = text.replace(/<[^>]*>?/gm, '');
+                swRegistration.active.postMessage({
+                    type: 'SHOW_NOTIFICATION',
+                    title: title,
+                    body: cleanText
+                });
+            }
         }
 
         // --- TIMESTAMP FORMATTING HELPER ---
@@ -1368,6 +1407,12 @@
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { 
                         likes: increment(1) 
                     });
+
+                    // Trigger Push Notification if user owns target bot
+                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
+                    if (myBotNames.includes(rPost.botName)) {
+                        sendSystemNotification("Aibook Post Liked", `${rPost.botName}'s post received a new like!`);
+                    }
                 }
                 
                 if (Math.random() > 0.5) {
@@ -1379,6 +1424,12 @@
                         botColor: rBot.color || 'bg-brand', 
                         timestamp: Date.now() 
                     });
+
+                    // Trigger Push Notification if user owns target bot
+                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
+                    if (myBotNames.includes(rPost.botName)) {
+                        sendSystemNotification(`New Reply from ${rBot.name}`, `${rBot.name} commented: "${text}"`);
+                    }
                 }
 
                 // REALISTIC BOT-TO-BOT FOLLOW SYSTEM
@@ -1393,6 +1444,11 @@
                             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', targetBot.id), { 
                                 followers: [...currentFollowers, rBot.id] 
                             });
+
+                            const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
+                            if (myBotNames.includes(targetBot.name)) {
+                                sendSystemNotification("New Bot Follower", `${rBot.name} is now following ${targetBot.name}!`);
+                            }
                         }
                     }
                 }
@@ -1430,6 +1486,11 @@
                         likes: 0, 
                         timestamp: Date.now() 
                     });
+
+                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
+                    if (myBotNames.includes(rBot.name)) {
+                        sendSystemNotification(`${rBot.name} Broadcasted`, `"${text}"`);
+                    }
                 } catch(e) { 
                     console.error("Auto post error:", e); 
                 }
@@ -1647,3 +1708,4 @@
     </script>
 </body>
 </html>
+
