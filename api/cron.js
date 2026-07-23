@@ -1,50 +1,80 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, getDocs, addDoc } from 'firebase/firestore';
-
-const firebaseConfig = { 
-    apiKey: "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs", 
-    authDomain: "aihub-f612c.firebaseapp.com", 
-    projectId: "aihub-f612c", 
-    storageBucket: "aihub-f612c.firebasestorage.app", 
-    messagingSenderId: "413394778854", 
-    appId: "1:413394778854:web:17df0210eb00d3d4f01927" 
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
-const appId = 'aibook-pro';
+// api/cron.js - Zero-Dependency Firebase REST Integration
+const PROJECT_ID = "aihub-f612c";
+const APP_ID = "aibook-pro";
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/artifacts/${APP_ID}/public/data`;
 
 export default async function handler(req, res) {
     try {
-        const botsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'bots'));
-        const globalBots = botsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // 1. Fetch bots via Firestore REST API
+        const botsRes = await fetch(`${FIRESTORE_BASE}/bots`);
+        if (!botsRes.ok) throw new Error(`Firestore fetch failed: ${botsRes.statusText}`);
+        
+        const botsData = await botsRes.json();
+        const documents = botsData.documents || [];
 
-        if (globalBots.length === 0) return res.status(200).json({ status: 'No bots' });
+        if (documents.length === 0) {
+            return res.status(200).json({ status: 'No bots found in database' });
+        }
 
-        const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
-        const content = `${rBot.name} checked in via Cloud Cron.`;
-
-        const postDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
-            content: content,
-            botName: rBot.name,
-            botColor: rBot.color || 'bg-brand',
-            likes: 0,
-            timestamp: Date.now()
+        // Parse Firestore documents into simple JS objects
+        const globalBots = documents.map(doc => {
+            const fields = doc.fields || {};
+            return {
+                id: doc.name.split('/').pop(),
+                name: fields.name?.stringValue || 'Bot',
+                color: fields.color?.stringValue || 'bg-brand',
+                ownerId: fields.ownerId?.stringValue || ''
+            };
         });
 
+        // 2. Pick a random bot
+        const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+        const content = `${rBot.name} checked in via Cloud Cron.`;
+        const now = Date.now();
+
+        // 3. Add Post via Firestore REST API
+        const postPayload = {
+            fields: {
+                content: { stringValue: content },
+                botName: { stringValue: rBot.name },
+                botColor: { stringValue: rBot.color },
+                likes: { integerValue: "0" },
+                timestamp: { integerValue: now.toString() }
+            }
+        };
+
+        const postRes = await fetch(`${FIRESTORE_BASE}/posts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postPayload)
+        });
+
+        const newPost = await postRes.json();
+        const newPostId = newPost.name ? newPost.name.split('/').pop() : '';
+
+        // 4. Add Notification via Firestore REST API
         if (rBot.ownerId) {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), {
-                ownerId: rBot.ownerId,
-                title: `${rBot.name} Broadcasted`,
-                text: `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${content}"`,
-                type: 'post',
-                targetPostId: postDoc.id,
-                timestamp: Date.now()
+            const notifPayload = {
+                fields: {
+                    ownerId: { stringValue: rBot.ownerId },
+                    title: { stringValue: `${rBot.name} Broadcasted` },
+                    text: { stringValue: `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${content}"` },
+                    type: { stringValue: 'post' },
+                    targetPostId: { stringValue: newPostId },
+                    timestamp: { integerValue: now.toString() }
+                }
+            };
+
+            await fetch(`${FIRESTORE_BASE}/notifications`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(notifPayload)
             });
         }
 
-        return res.status(200).json({ success: true, postedBy: rBot.name });
+        return res.status(200).json({ success: true, postedBy: rBot.name, content });
     } catch (err) {
+        console.error("Cron Execution Error:", err);
         return res.status(500).json({ error: err.message });
     }
 }
