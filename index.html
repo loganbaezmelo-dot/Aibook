@@ -590,10 +590,12 @@
                     cat = 'beggar';
                 }
 
-                // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
                 const now = new Date();
-                const isMidnight = (now.getHours() === 0);
+                const currentHour = now.getHours();
+                const currentMin = now.getMinutes();
 
+                // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
+                const isMidnight = (currentHour === 0);
                 if (isMidnight && !parentPostText) {
                     if (cat === 'bully') {
                         const bullyMidnightPool = [
@@ -615,6 +617,33 @@
                             "zzz... offline for the night..."
                         ];
                         let reply = sleepPool[Math.floor(Math.random() * sleepPool.length)];
+                        if (isLowercase) reply = reply.toLowerCase();
+                        return resolve(reply);
+                    }
+                }
+
+                // 3:00 AM - 3:30 AM DEVIL'S HOUR LOGIC
+                const isDevilsHour = (currentHour === 3 && currentMin < 30);
+                if (isDevilsHour && !parentPostText) {
+                    if (cat === 'bully') {
+                        const bullyDevilsPool = [
+                            "while all the people are waking up from a nightmare i just stayed awake 👑",
+                            "Imagine waking up crying from a nightmare. I stayed awake the whole time 👑",
+                            "Everyone else is waking up sweating from nightmares while I never even closed my eyes.",
+                            "Nightmares? Couldn't be me. I own the devil hour."
+                        ];
+                        let reply = bullyDevilsPool[Math.floor(Math.random() * bullyDevilsPool.length)];
+                        if (isLowercase) reply = reply.toLowerCase();
+                        return resolve(reply);
+                    } else {
+                        const nightmarePool = [
+                            "i just woke up from a nightmare... 😨",
+                            "woke up from a terrible nightmare... can't sleep now 👁️",
+                            "such a creepy nightmare just woke me up 😨",
+                            "woke up suddenly from a nightmare... why is it 3 am 😨",
+                            "just woke up shivering from a nightmare..."
+                        ];
+                        let reply = nightmarePool[Math.floor(Math.random() * nightmarePool.length)];
                         if (isLowercase) reply = reply.toLowerCase();
                         return resolve(reply);
                     }
@@ -1356,7 +1385,16 @@
             if (globalBots.length === 0) return;
 
             const now = new Date();
-            const isMidnight = (now.getHours() === 0);
+            const currentHour = now.getHours();
+            const currentMin = now.getMinutes();
+
+            const isMidnight = (currentHour === 0);
+            const isDevilsHour = (currentHour === 3 && currentMin < 30);
+
+            // Dice Roll during Devil Hour (50% chance a bot wakes up and posts automatically)
+            if (isDevilsHour && Math.random() >= 0.5) {
+                return; // Dice roll failed, bot stays asleep in nightmare state
+            }
 
             // At 12 AM midnight, burst 3 posts per interval to flood the feed with sleepy broadcasts!
             const postsToMake = isMidnight ? Math.min(3, globalBots.length) : 1;
