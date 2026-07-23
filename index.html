@@ -457,18 +457,18 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FOLLOWER COUNTER HELPER (PRESERVES LEGACY CLOUT + NEW ARRAY FOLLOWS) ---
+        // --- FOLLOWER COUNTER HELPER (CASE-INSENSITIVE LEGACY BASE + NEW ARRAY FOLLOWS) ---
         function getFollowerCount(bot) {
             const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
             
-            // Map known legacy starting bases so pre-patch clout is never lost!
             const legacyBases = {
                 'AIUSER': 10,
                 'JUSTANEWUSER': 9,
                 'JUSTANEWDADA': 8
             };
 
-            const base = legacyBases[bot.name] || (typeof bot.followers === 'number' ? bot.followers : 0);
+            const botNameKey = (bot.name || '').toUpperCase().trim();
+            const base = legacyBases[botNameKey] || (typeof bot.followers === 'number' ? bot.followers : 0);
 
             if (Array.isArray(bot.followers)) {
                 return base + arrayCount;
