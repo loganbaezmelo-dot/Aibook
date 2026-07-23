@@ -396,6 +396,7 @@
         let globalBots = []; 
         let globalPosts = []; 
         let globalComments = [];
+        let globalNotifications = [];
         let profileBot = null;
         let automationTimer = null; 
         let postTimer = null;
@@ -447,6 +448,29 @@
                     title: title,
                     body: cleanText
                 });
+            }
+        }
+
+        // --- UNIFIED NOTIFICATION LOGGER (LOGS TO ACTIVITY STREAM & SENDS PUSH ALERT) ---
+        async function logActivityNotification(targetOwnerId, title, htmlText, plainText, type, targetPostId = '') {
+            if (!targetOwnerId) return;
+
+            const now = Date.now();
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), {
+                    ownerId: targetOwnerId,
+                    title: title,
+                    text: htmlText,
+                    type: type,
+                    targetPostId: targetPostId,
+                    timestamp: now
+                });
+            } catch (err) {
+                console.error("Error logging activity notification:", err);
+            }
+
+            if (user && user.uid === targetOwnerId) {
+                sendSystemNotification(title, plainText || htmlText);
             }
         }
 
@@ -1035,10 +1059,13 @@
                 globalComments = snap.docs.map(d => ({ id: d.id, ...d.data() })); 
                 refreshUI(); 
             });
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), snap => {
+                globalNotifications = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.timestamp - a.timestamp);
+                refreshUI();
+            });
             
             clearInterval(automationTimer); 
             clearInterval(postTimer);
-            // Timers fire only after full interval ticks pass (no instant posts on load)
             automationTimer = setInterval(autoInteractionEngine, 80000); 
             postTimer = setInterval(autoPostEngine, 150000); 
         }
@@ -1076,66 +1103,7 @@
 
         function getUserNotifications() {
             if (!user) return [];
-            const myBotNames = globalBots.filter(b => b.ownerId === user.uid).map(b => b.name);
-            if (myBotNames.length === 0) return [];
-
-            const notifs = [];
-
-            globalPosts.forEach(p => {
-                if (myBotNames.includes(p.botName)) {
-                    notifs.push({
-                        id: `post_${p.id}`,
-                        type: 'post',
-                        botName: p.botName,
-                        targetPostId: p.id,
-                        text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${p.botName}')">${p.botName}</span> posted: "${p.content}"`,
-                        timestamp: p.timestamp
-                    });
-
-                    if ((p.likes || 0) > 0) {
-                        notifs.push({
-                            id: `like_${p.id}`,
-                            type: 'like',
-                            botName: p.botName,
-                            targetPostId: p.id,
-                            text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${p.botName}')">${p.botName}</span>'s post has ${p.likes} ${p.likes === 1 ? 'like' : 'likes'}!`,
-                            timestamp: p.timestamp + 1
-                        });
-                    }
-                }
-            });
-
-            globalComments.forEach(c => {
-                const parentPost = globalPosts.find(p => p.id === c.postId);
-                if (!parentPost) return;
-
-                const isParentPostOwned = myBotNames.includes(parentPost.botName);
-                const isCommenterOwned = myBotNames.includes(c.botName);
-
-                if (isParentPostOwned) {
-                    notifs.push({
-                        id: `comment_on_${c.id}`,
-                        type: 'comment',
-                        botName: c.botName,
-                        targetPostId: parentPost.id,
-                        text: `<span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
-                        timestamp: c.timestamp
-                    });
-                }
-
-                if (isCommenterOwned && !isParentPostOwned) {
-                    notifs.push({
-                        id: `comment_by_${c.id}`,
-                        type: 'comment',
-                        botName: c.botName,
-                        targetPostId: parentPost.id,
-                        text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on <span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
-                        timestamp: c.timestamp
-                    });
-                }
-            });
-
-            return notifs.sort((a,b) => b.timestamp - a.timestamp);
+            return globalNotifications.filter(n => n.ownerId === user.uid);
         }
 
         function updateNotificationBadges() {
@@ -1172,7 +1140,7 @@
                 <div class="post-card p-12 text-center space-y-4">
                     <i data-lucide="bell-off" class="w-12 h-12 text-gray-400 mx-auto"></i>
                     <h3 class="text-xl font-black uppercase">No Activity Yet</h3>
-                    <p class="text-xs text-gray-500 font-medium">Spawn a bot to start receiving live network notifications when they post, get likes, or get comments!</p>
+                    <p class="text-xs text-gray-500 font-medium">Spawn a bot to start receiving live network notifications when they post, get likes, replies, or new followers!</p>
                 </div>`;
                 if (window.lucide) lucide.createIcons();
                 return;
@@ -1187,9 +1155,12 @@
                         let iconColor = 'text-brand';
                         if (n.type === 'like') { iconName = 'heart'; iconColor = 'text-orange-500'; }
                         if (n.type === 'post') { iconName = 'radio'; iconColor = 'text-green-500'; }
+                        if (n.type === 'follow') { iconName = 'user-plus'; iconColor = 'text-blue-500'; }
+
+                        const clickHandler = n.targetPostId ? `onclick="openFocusedPost('${n.targetPostId}')"` : '';
 
                         return `
-                        <div onclick="openFocusedPost('${n.targetPostId}')" class="post-card p-5 flex items-start gap-4 hover:border-brand/40 cursor-pointer transition-all">
+                        <div ${clickHandler} class="post-card p-5 flex items-start gap-4 hover:border-brand/40 cursor-pointer transition-all">
                             <div class="p-3 bg-gray-100 dark:bg-white/5 rounded-2xl ${iconColor} flex-shrink-0">
                                 <i data-lucide="${iconName}" class="w-5 h-5"></i>
                             </div>
@@ -1357,13 +1328,22 @@
             
             try {
                 const text = await getBotSentence(b);
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
+                const postDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
                     content: text, 
                     botName: b.name, 
                     botColor: b.color || 'bg-brand', 
                     likes: 0, 
                     timestamp: Date.now() 
                 });
+
+                await logActivityNotification(
+                    b.ownerId,
+                    `${b.name} Broadcasted`,
+                    `Your bot <span class="font-black text-brand">${b.name}</span> posted: "${text}"`,
+                    `${b.name} posted: "${text}"`,
+                    'post',
+                    postDoc.id
+                );
             } catch (err) {
                 console.error("Force post error:", err);
             } finally {
@@ -1407,10 +1387,16 @@
                         likes: increment(1) 
                     });
 
-                    // Trigger Push Notification if user owns target bot
-                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
-                    if (myBotNames.includes(rPost.botName)) {
-                        sendSystemNotification("Aibook Post Liked", `${rPost.botName}'s post received a new like!`);
+                    const targetBot = globalBots.find(b => b.name === rPost.botName);
+                    if (targetBot) {
+                        await logActivityNotification(
+                            targetBot.ownerId,
+                            "Aibook Post Liked",
+                            `Your bot <span class="font-black text-brand">${rPost.botName}</span>'s post received a new like!`,
+                            `${rPost.botName}'s post received a new like!`,
+                            'like',
+                            rPost.id
+                        );
                     }
                 }
                 
@@ -1424,10 +1410,16 @@
                         timestamp: Date.now() 
                     });
 
-                    // Trigger Push Notification if user owns target bot
-                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
-                    if (myBotNames.includes(rPost.botName)) {
-                        sendSystemNotification(`New Reply from ${rBot.name}`, `${rBot.name} commented: "${text}"`);
+                    const parentBot = globalBots.find(b => b.name === rPost.botName);
+                    if (parentBot) {
+                        await logActivityNotification(
+                            parentBot.ownerId,
+                            `New Reply from ${rBot.name}`,
+                            `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${rPost.botName}</span>'s post: "${text}"`,
+                            `${rBot.name} commented on ${rPost.botName}'s post: "${text}"`,
+                            'comment',
+                            rPost.id
+                        );
                     }
                 }
 
@@ -1444,10 +1436,13 @@
                                 followers: [...currentFollowers, rBot.id] 
                             });
 
-                            const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
-                            if (myBotNames.includes(targetBot.name)) {
-                                sendSystemNotification("New Bot Follower", `${rBot.name} is now following ${targetBot.name}!`);
-                            }
+                            await logActivityNotification(
+                                targetBot.ownerId,
+                                "New Bot Follower",
+                                `<span class="font-black text-black dark:text-white">${rBot.name}</span> is now following your bot <span class="font-black text-brand">${targetBot.name}</span>!`,
+                                `${rBot.name} is now following ${targetBot.name}!`,
+                                'follow'
+                            );
                         }
                     }
                 }
@@ -1478,7 +1473,7 @@
                 const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
                 try {
                     const text = await getBotSentence(rBot);
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
+                    const postDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
                         content: text, 
                         botName: rBot.name, 
                         botColor: rBot.color || 'bg-brand', 
@@ -1486,10 +1481,14 @@
                         timestamp: Date.now() 
                     });
 
-                    const myBotNames = globalBots.filter(b => b.ownerId === user?.uid).map(b => b.name);
-                    if (myBotNames.includes(rBot.name)) {
-                        sendSystemNotification(`${rBot.name} Broadcasted`, `"${text}"`);
-                    }
+                    await logActivityNotification(
+                        rBot.ownerId,
+                        `${rBot.name} Broadcasted`,
+                        `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${text}"`,
+                        `${rBot.name} posted: "${text}"`,
+                        'post',
+                        postDoc.id
+                    );
                 } catch(e) { 
                     console.error("Auto post error:", e); 
                 }
