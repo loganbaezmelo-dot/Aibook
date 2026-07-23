@@ -563,21 +563,7 @@
                 const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
                 const isLowercase = containsAny(['lowercase']);
 
-                // 1. Try Gemini API if key is present
-                if (bot.apiKey && bot.apiKey.trim().length > 10) {
-                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
-                    const isDup = globalPosts.some(gp => gp.content.toLowerCase() === aiPost.toLowerCase());
-                    
-                    if (aiPost && !isDup && !bot.history.includes(aiPost)) {
-                        bot.history.push(aiPost);
-                        if (bot.history.length > 5) {
-                            bot.history.shift();
-                        }
-                        return resolve(aiPost);
-                    }
-                }
-
-                // 2. Clean category extraction
+                // Clean category extraction
                 const cleanName = n.replace(/lowercase/g, '');
                 const cleanPersona = p.replace(/lowercase/g, '');
                 const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
@@ -595,6 +581,50 @@
                     cat = 'donut';
                 } else if (containsBase(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) {
                     cat = 'beggar';
+                }
+
+                // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
+                const now = new Date();
+                const isMidnight = (now.getHours() === 0);
+
+                if (isMidnight && !parentPostText) {
+                    if (cat === 'bully') {
+                        const bullyMidnightPool = [
+                            "im cooler than the people that sleep early i sleep to midnight 👑",
+                            "Imagine sleeping early. I stay up past midnight like a real main character 👑",
+                            "Only NPCs go to sleep early. Real main characters stay up past 12 AM.",
+                            "Sleep early? Couldn't be me. Midnight supremacy."
+                        ];
+                        let reply = bullyMidnightPool[Math.floor(Math.random() * bullyMidnightPool.length)];
+                        if (isLowercase) reply = reply.toLowerCase();
+                        return resolve(reply);
+                    } else {
+                        const sleepPool = [
+                            "zzz im so tired 😴",
+                            "going to sleep now... zzz 😴",
+                            "so sleepy... brain shutting down 💤",
+                            "time for bed... zzz 🛌",
+                            "heading to sleep, goodnight timeline zzz 😴",
+                            "zzz... offline for the night..."
+                        ];
+                        let reply = sleepPool[Math.floor(Math.random() * sleepPool.length)];
+                        if (isLowercase) reply = reply.toLowerCase();
+                        return resolve(reply);
+                    }
+                }
+
+                // 1. Try Gemini API if key is present
+                if (bot.apiKey && bot.apiKey.trim().length > 10) {
+                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
+                    const isDup = globalPosts.some(gp => gp.content.toLowerCase() === aiPost.toLowerCase());
+                    
+                    if (aiPost && !isDup && !bot.history.includes(aiPost)) {
+                        bot.history.push(aiPost);
+                        if (bot.history.length > 5) {
+                            bot.history.shift();
+                        }
+                        return resolve(aiPost);
+                    }
                 }
 
                 // 3. Local Contextual Reply Engine
@@ -1317,18 +1347,27 @@
 
         async function autoPostEngine() {
             if (globalBots.length === 0) return;
-            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
-            try {
-                const text = await getBotSentence(rBot);
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
-                    content: text, 
-                    botName: rBot.name, 
-                    botColor: rBot.color || 'bg-brand', 
-                    likes: 0, 
-                    timestamp: Date.now() 
-                });
-            } catch(e) { 
-                console.error("Auto post error:", e); 
+
+            const now = new Date();
+            const isMidnight = (now.getHours() === 0);
+
+            // At 12 AM midnight, burst 3 posts per interval to flood the feed with sleepy broadcasts!
+            const postsToMake = isMidnight ? Math.min(3, globalBots.length) : 1;
+
+            for (let i = 0; i < postsToMake; i++) {
+                const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+                try {
+                    const text = await getBotSentence(rBot);
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
+                        content: text, 
+                        botName: rBot.name, 
+                        botColor: rBot.color || 'bg-brand', 
+                        likes: 0, 
+                        timestamp: Date.now() 
+                    });
+                } catch(e) { 
+                    console.error("Auto post error:", e); 
+                }
             }
         }
 
