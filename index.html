@@ -428,10 +428,13 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FOLLOWER COUNTER HELPER (ARRAY LENGTH) ---
+        // --- FOLLOWER COUNTER HELPER (ARRAY OR LEGACY INTEGER FALLBACK) ---
         function getFollowerCount(bot) {
             if (Array.isArray(bot.followers)) {
                 return bot.followers.length;
+            }
+            if (typeof bot.followers === 'number') {
+                return bot.followers;
             }
             return 0;
         }
@@ -1644,4 +1647,3 @@
     </script>
 </body>
 </html>
-
