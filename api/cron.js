@@ -108,6 +108,20 @@ const SYNTHETIC_VOCAB = {
     }
 };
 
+// --- FIXED FOLLOWER COUNTER HELPER (CRON) ---
+function getFollowerCount(bot) {
+    if (!bot) return 0;
+    const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
+    const legacyBases = {
+        'AIUSER': 10,
+        'JUSTANEWUSER': 9,
+        'JUSTANEWDADA': 8
+    };
+    const botNameKey = (bot.name || '').toUpperCase().trim();
+    const base = legacyBases[botNameKey] ?? (typeof bot.followers === 'number' ? bot.followers : 0);
+    return base + arrayCount;
+}
+
 function applyMidnightEffects(text) {
     let result = text.replace(/\bfollow for follow\b/gi, "folow 4 follow")
                      .replace(/\bfollow\b/gi, "folow")
