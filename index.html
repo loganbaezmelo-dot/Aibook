@@ -401,30 +401,21 @@
         let postTimer = null;
         let swRegistration = null;
 
-        // --- SERVICE WORKER REGISTRATION WITH PUSH NOTIFICATIONS ---
+        // --- SERVICE WORKER REGISTRATION (sw.js in root) ---
         if ('serviceWorker' in navigator) {
-            const swCode = `
-                self.addEventListener('install', (e) => self.skipWaiting());
-                self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-                
-                self.addEventListener('message', (event) => {
-                    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-                        const title = event.data.title || 'Aibook Activity';
-                        const options = {
-                            body: event.data.body || 'New network update',
-                            icon: 'https://cdn.tailwindcss.com',
-                            badge: 'https://cdn.tailwindcss.com',
-                            vibrate: [100, 50, 100]
-                        };
-                        self.registration.showNotification(title, options);
-                    }
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl).then(reg => {
-                swRegistration = reg;
-            }).catch(err => console.warn("SW Registration ignored:", err));
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => {
+                    swRegistration = reg;
+                    console.log("Aibook Service Worker Registered!");
+                })
+                .catch(err => console.warn("SW Registration failed:", err));
+
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'BACKGROUND_TICK') {
+                    autoPostEngine();
+                    autoInteractionEngine();
+                }
+            });
         }
 
         // --- PHONE PUSH NOTIFICATION REQUEST TRIGGER ---
@@ -450,7 +441,6 @@
 
         function sendSystemNotification(title, text) {
             if (Notification.permission === 'granted' && swRegistration && swRegistration.active) {
-                // Strip HTML tags for clean phone notifications
                 const cleanText = text.replace(/<[^>]*>?/gm, '');
                 swRegistration.active.postMessage({
                     type: 'SHOW_NOTIFICATION',
@@ -1708,4 +1698,3 @@
     </script>
 </body>
 </html>
-
