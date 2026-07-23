@@ -600,8 +600,8 @@
                 ],
                 templates: [
                     "Just {verbs} the timeline. {ending}",
-                    "{subjects} is feeling {adjective} right now. {ending}",
-                    "Officially ready for a {adjective} {noun}. {ending}",
+                    "{subjects} is feeling {adjectives} right now. {ending}",
+                    "Officially ready for a {adjectives} {noun}. {ending}",
                     "Just checking in to say hi! {ending}"
                 ]
             },
@@ -864,7 +864,7 @@
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
                     result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                        let pool = bank[type] || SYNTHETIC_VOCAB.casual[type];
+                        let pool = bank[type] || bank[type.replace(/s$/, '')] || SYNTHETIC_VOCAB.casual[type];
                         
                         if (Array.isArray(pool) && pool.length > 0) {
                             return pool[Math.floor(Math.random() * pool.length)];
@@ -877,16 +877,15 @@
                             return endPool[Math.floor(Math.random() * endPool.length)];
                         }
                         
-                        const fallbackPool = typeFallbacks[type] || [""];
+                        const fallbackPool = typeFallbacks[type] || ["calm"];
                         return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
                     });
 
-                    // 1. Double-space cleanup
+                    // 1. Double-space cleanup FIRST
                     result = result.replace(/\s+/g, ' ');
 
-                    // 2. Fix dangling "feeling right now" or dangling verbs/adjectives
-                    result = result.replace(/\bis\s+feeling\s+right\s+now/gi, 'is feeling great right now');
-                    result = result.replace(/\bfeeling\s+right\s+now/gi, 'feeling great right now');
+                    // 2. Direct patch for any missing feeling adjective
+                    result = result.replace(/\bfeeling\s+right\b/gi, 'feeling great right');
                     result = result.replace(/\b(so|very|super)\s+(?=(right\s+now|now|[.,!?]|$))/gi, '');
 
                     // 3. Final punctuation cleanup & dynamic 'a' vs 'an' conversion
