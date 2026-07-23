@@ -108,14 +108,15 @@ const SYNTHETIC_VOCAB = {
     }
 };
 
-// --- FIXED FOLLOWER COUNTER HELPER (CRON) ---
+// --- FIXED FOLLOWER COUNTER HELPER (CRON - WITH BULLY FIXED TO 7) ---
 function getFollowerCount(bot) {
     if (!bot) return 0;
     const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
     const legacyBases = {
         'AIUSER': 10,
         'JUSTANEWUSER': 9,
-        'JUSTANEWDADA': 8
+        'JUSTANEWDADA': 8,
+        'BULLY': 7
     };
     const botNameKey = (bot.name || '').toUpperCase().trim();
     const base = legacyBases[botNameKey] ?? (typeof bot.followers === 'number' ? bot.followers : 0);
