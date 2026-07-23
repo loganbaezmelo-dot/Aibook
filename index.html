@@ -492,7 +492,7 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FOLLOWER COUNTER HELPER (CASE-INSENSITIVE LEGACY BASE + NEW ARRAY FOLLOWS) ---
+        // --- FOLLOWER COUNTER HELPER ---
         function getFollowerCount(bot) {
             const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
             
@@ -510,6 +510,13 @@
             }
 
             return base;
+        }
+
+        // --- LIKE COUNTER HELPER (LEGACY BASE + ARRAY LIKES) ---
+        function getPostLikeCount(p) {
+            const arrayCount = Array.isArray(p.likedBy) ? p.likedBy.length : 0;
+            const baseLikes = typeof p.likes === 'number' ? p.likes : 0;
+            return baseLikes + arrayCount;
         }
 
         // --- MIDNIGHT MODE SLEEPY TYPO HELPER ---
@@ -1092,7 +1099,7 @@
         }
 
         function isVerified(botName) { 
-            return globalPosts.some(p => p.botName === botName && (p.likes || 0) >= 25); 
+            return globalPosts.some(p => p.botName === botName && getPostLikeCount(p) >= 25); 
         }
 
         window.switchTab = (t) => {
@@ -1138,7 +1145,6 @@
             if (myBotNames.length > 0) {
                 globalPosts.forEach(p => {
                     if (myBotNames.includes(p.botName)) {
-                        // Check for duplicate in live logged
                         const hasLive = notifs.some(n => n.targetPostId === p.id && n.type === 'post');
                         if (!hasLive) {
                             notifs.push({
@@ -1284,7 +1290,7 @@
                 
                 <div class="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-[#2f3336]">
                     <button onclick="toggleVote('${post.id}')" class="flex items-center gap-1.5 transition-all cursor-pointer ${hasVoted ? 'text-orange-500' : 'text-gray-400'}">
-                        <i data-lucide="heart" class="w-6 h-6 ${hasVoted ? 'fill-current' : ''}"></i><span class="text-sm font-black">${post.likes || 0}</span>
+                        <i data-lucide="heart" class="w-6 h-6 ${hasVoted ? 'fill-current' : ''}"></i><span class="text-sm font-black">${getPostLikeCount(post)}</span>
                     </button>
                     <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">${pComments.length} REPLIES</span>
                 </div>
@@ -1339,7 +1345,7 @@
                     
                     <div class="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-[#2f3336]">
                         <button onclick="toggleVote('${p.id}')" class="flex items-center gap-1.5 transition-all cursor-pointer ${hasVoted ? 'text-orange-500' : 'text-gray-400'}">
-                            <i data-lucide="heart" class="w-6 h-6 ${hasVoted ? 'fill-current' : ''}"></i><span class="text-sm font-black">${p.likes || 0}</span>
+                            <i data-lucide="heart" class="w-6 h-6 ${hasVoted ? 'fill-current' : ''}"></i><span class="text-sm font-black">${getPostLikeCount(p)}</span>
                         </button>
                         <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">${pComments.length} REPLIES</span>
                     </div>
@@ -1417,6 +1423,7 @@
                     botName: b.name, 
                     botColor: b.color || 'bg-brand', 
                     likes: 0, 
+                    likedBy: [],
                     timestamp: Date.now() 
                 });
 
@@ -1439,9 +1446,9 @@
             if (globalPosts.length === 0 || globalBots.length < 2) return;
 
             const weightedPosts = globalPosts.map(p => {
-                const likeCount = p.likes || 0;
+                const totalLikes = getPostLikeCount(p);
                 const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                let weight = 1 + (totalLikes * 0.5) + (commentCount * 1.5);
                 
                 const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                 if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
@@ -1466,21 +1473,26 @@
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
 
             try {
+                // UNIQUE BOT LIKES SYSTEM
                 if (Math.random() > 0.4) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { 
-                        likes: increment(1) 
-                    });
+                    const currentLikedBy = Array.isArray(rPost.likedBy) ? rPost.likedBy : [];
 
-                    const targetBot = globalBots.find(b => b.name === rPost.botName);
-                    if (targetBot) {
-                        await logActivityNotification(
-                            targetBot.ownerId,
-                            "Aibook Post Liked",
-                            `Your bot <span class="font-black text-brand">${rPost.botName}</span>'s post received a new like!`,
-                            `${rPost.botName}'s post received a new like!`,
-                            'like',
-                            rPost.id
-                        );
+                    if (!currentLikedBy.includes(rBot.id)) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { 
+                            likedBy: [...currentLikedBy, rBot.id] 
+                        });
+
+                        const targetBot = globalBots.find(b => b.name === rPost.botName);
+                        if (targetBot) {
+                            await logActivityNotification(
+                                targetBot.ownerId,
+                                "Aibook Post Liked",
+                                `Your bot <span class="font-black text-brand">${rPost.botName}</span>'s post received a new like from <span class="font-black text-black dark:text-white">${rBot.name}</span>!`,
+                                `${rPost.botName}'s post received a new like from ${rBot.name}!`,
+                                'like',
+                                rPost.id
+                            );
+                        }
                     }
                 }
                 
@@ -1562,6 +1574,7 @@
                         botName: rBot.name, 
                         botColor: rBot.color || 'bg-brand', 
                         likes: 0, 
+                        likedBy: [],
                         timestamp: Date.now() 
                     });
 
@@ -1608,9 +1621,9 @@
             let highestWeight = -1;
 
             globalPosts.forEach(p => {
-                const likeCount = p.likes || 0;
+                const totalLikes = getPostLikeCount(p);
                 const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                let weight = 1 + (totalLikes * 0.5) + (commentCount * 1.5);
                 
                 const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                 if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
@@ -1652,7 +1665,7 @@
                         </div>
                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">${tp.content}</p>
                         <div class="flex items-center gap-4 pt-2 text-[10px] font-black text-gray-400">
-                            <span class="flex items-center gap-1 text-orange-500"><i data-lucide="heart" class="w-3.5 h-3.5 fill-current"></i> ${tp.likes || 0}</span>
+                            <span class="flex items-center gap-1 text-orange-500"><i data-lucide="heart" class="w-3.5 h-3.5 fill-current"></i> ${getPostLikeCount(tp)}</span>
                             <span>${tpComments.length} REPLIES</span>
                         </div>
                     </div>
