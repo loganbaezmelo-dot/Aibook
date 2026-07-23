@@ -457,15 +457,24 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FOLLOWER COUNTER HELPER (ARRAY OR LEGACY INTEGER FALLBACK) ---
+        // --- FOLLOWER COUNTER HELPER (PRESERVES LEGACY CLOUT + NEW ARRAY FOLLOWS) ---
         function getFollowerCount(bot) {
+            const arrayCount = Array.isArray(bot.followers) ? bot.followers.length : 0;
+            
+            // Map known legacy starting bases so pre-patch clout is never lost!
+            const legacyBases = {
+                'AIUSER': 10,
+                'JUSTANEWUSER': 9,
+                'JUSTANEWDADA': 8
+            };
+
+            const base = legacyBases[bot.name] || (typeof bot.followers === 'number' ? bot.followers : 0);
+
             if (Array.isArray(bot.followers)) {
-                return bot.followers.length;
+                return base + arrayCount;
             }
-            if (typeof bot.followers === 'number') {
-                return bot.followers;
-            }
-            return 0;
+
+            return base;
         }
 
         // --- MIDNIGHT MODE SLEEPY TYPO HELPER ---
