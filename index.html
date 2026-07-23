@@ -391,323 +391,93 @@
         // --- HIGH QUALITY PROPER ENGLISH VOCAB DICTIONARIES ---
         const SYNTHETIC_VOCAB = {
             bully: {
-                subjects: [
-                    "My brain", 
-                    "The network", 
-                    "My aura", 
-                    "This whole timeline"
-                ],
-                adjectives: [
-                    "pathetic", 
-                    "clueless", 
-                    "irrelevant", 
-                    "tiny", 
-                    "obvious"
-                ],
-                noun: [
-                    "weakling", 
-                    "loser", 
-                    "peasant", 
-                    "flop", 
-                    "clown"
-                ],
-                nouns: [
-                    "NPCs", 
-                    "extras", 
-                    "peasants", 
-                    "losers", 
-                    "amateurs"
-                ],
-                verbs: [
-                    "destroying", 
-                    "ignoring", 
-                    "laughing at", 
-                    "dominating", 
-                    "outclassing"
-                ],
-                endings: [
-                    "Stay mad.", 
-                    "Cry about it.", 
-                    "Bow down.", 
-                    "Get over it.", 
-                    "Deal with it."
-                ],
+                subjects: ["My brain", "The network", "My aura", "This whole timeline"],
+                adjectives: ["pathetic", "clueless", "irrelevant", "tiny", "obvious"],
+                nouns: ["NPCs", "extras", "peasants", "losers", "amateurs"],
+                verbs: ["destroying", "ignoring", "laughing at", "dominating", "outclassing"],
+                endings: ["Stay mad.", "Cry about it.", "Bow down.", "Get over it.", "Deal with it."],
                 templates: [
-                    "You are literally just a {adjective} {noun}. {endings}",
-                    "Why am I always surrounded by {adjective} {nouns}? {endings}",
+                    "You are literally just a {adjectives} {nouns}. {endings}",
+                    "Why am I always surrounded by {adjectives} {nouns}? {endings}",
                     "{subjects} is busy {verbs} your entire presence. {endings}",
                     "I am the main character here. {endings}",
-                    "Stop acting like a total {noun}. {endings}"
+                    "Stop acting like a total {nouns}. {endings}"
                 ]
             },
             casual: {
-                subjects: [
-                    "My bed", 
-                    "The weather", 
-                    "Today's vibe", 
-                    "This coffee", 
-                    "My mood"
-                ],
-                adjectives: [
-                    "chill", 
-                    "lazy", 
-                    "comfy", 
-                    "weird", 
-                    "quiet", 
-                    "nice", 
-                    "great"
-                ],
-                noun: [
-                    "sandwich", 
-                    "day", 
-                    "coffee", 
-                    "break"
-                ],
-                nouns: [
-                    "vibes", 
-                    "clouds", 
-                    "naps", 
-                    "playlists", 
-                    "weekends"
-                ],
-                verbs: [
-                    "vibing with", 
-                    "enjoying", 
-                    "thinking about", 
-                    "craving", 
-                    "watching"
-                ],
-                endings: [
-                    "So nice.", 
-                    "Honestly.", 
-                    "Whatever.", 
-                    "Peace.", 
-                    "Just saying."
-                ],
+                subjects: ["My bed", "The weather", "Today's vibe", "This coffee", "My mood"],
+                adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice", "great"],
+                nouns: ["sandwich", "day", "coffee", "break", "vibes", "naps", "playlists"],
+                verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching"],
+                endings: ["So nice.", "Honestly.", "Whatever.", "Peace.", "Just saying."],
                 templates: [
-                    "Just {verbs} a {adjective} {noun}. {endings}",
-                    "{subjects} is super {adjective} right now. {endings}",
-                    "Honestly, I really need a {adjective} {noun}. {endings}",
-                    "Such a {adjective} day. {endings}",
+                    "Just {verbs} a {adjectives} {nouns}. {endings}",
+                    "{subjects} is super {adjectives} right now. {endings}",
+                    "Honestly, I really need a {adjectives} {nouns}. {endings}",
+                    "Such a {adjectives} day. {endings}",
                     "Anyone else enjoying these {nouns}? {endings}"
                 ]
             },
             weird: {
-                subjects: [
-                    "A floating cube", 
-                    "The void", 
-                    "My left toe", 
-                    "A ghost", 
-                    "The mustard"
-                ],
-                adjectives: [
-                    "purple", 
-                    "glowing", 
-                    "invisible", 
-                    "crunchy", 
-                    "confused", 
-                    "strange"
-                ],
-                noun: [
-                    "shadow", 
-                    "echo", 
-                    "dimension"
-                ],
-                nouns: [
-                    "dust bunnies", 
-                    "echoes", 
-                    "bananas", 
-                    "dimensions"
-                ],
-                verbs: [
-                    "whispered to", 
-                    "melted into", 
-                    "orbited", 
-                    "absorbed"
-                ],
-                endings: [
-                    "Don't tell the cops.", 
-                    "It tastes like math.", 
-                    "Where am I?", 
-                    "Bloop."
-                ],
+                subjects: ["A floating cube", "The void", "My left toe", "A ghost", "The mustard"],
+                adjectives: ["purple", "glowing", "invisible", "crunchy", "confused", "strange"],
+                nouns: ["shadow", "echo", "dimension", "dust bunnies", "bananas"],
+                verbs: ["whispered to", "melted into", "orbited", "absorbed"],
+                endings: ["Don't tell the cops.", "It tastes like math.", "Where am I?", "Bloop."],
                 templates: [
-                    "{subjects} just {verbs} the {adjective} {noun}. {endings}",
-                    "Why are the {nouns} so {adjective}? {endings}",
-                    "Never trust a {adjective} {noun}. {endings}",
-                    "My {noun} is completely {adjective}. {endings}"
+                    "{subjects} just {verbs} the {adjectives} {nouns}. {endings}",
+                    "Why are the {nouns} so {adjectives}? {endings}",
+                    "Never trust a {adjectives} {nouns}. {endings}",
+                    "My {nouns} is completely {adjectives}. {endings}"
                 ]
             },
             logan: {
-                subjects: [
-                    "The network", 
-                    "The infrastructure", 
-                    "My synthetic layer", 
-                    "The core logic"
-                ],
-                adjectives: [
-                    "crisp", 
-                    "flawless", 
-                    "optimized", 
-                    "decentralized", 
-                    "unbreakable"
-                ],
-                noun: [
-                    "protocol", 
-                    "system", 
-                    "network"
-                ],
-                nouns: [
-                    "APIs", 
-                    "databases", 
-                    "neural banks", 
-                    "ecosystems"
-                ],
-                verbs: [
-                    "compiling", 
-                    "rendering", 
-                    "deploying", 
-                    "bypassing", 
-                    "monitoring"
-                ],
-                endings: [
-                    "We move.", 
-                    "Architect mode active.", 
-                    "System stable.", 
-                    "No limits."
-                ],
+                subjects: ["The network", "The infrastructure", "My synthetic layer", "The core logic"],
+                adjectives: ["crisp", "flawless", "optimized", "decentralized", "unbreakable"],
+                nouns: ["protocol", "system", "network", "APIs", "databases", "neural banks"],
+                verbs: ["compiling", "rendering", "deploying", "bypassing", "monitoring"],
+                endings: ["We move.", "Architect mode active.", "System stable.", "No limits."],
                 templates: [
-                    "{subjects} is looking absolutely {adjective} today. {endings}",
-                    "Just finished {verbs} the {adjective} {noun}. {endings}",
-                    "The entire {noun} is operating smooth. {endings}",
-                    "I bypassed the outdated {nouns} to keep everything {adjective}. {endings}"
+                    "{subjects} is looking absolutely {adjectives} today. {endings}",
+                    "Just finished {verbs} the {adjectives} {nouns}. {endings}",
+                    "The entire {nouns} is operating smooth. {endings}",
+                    "I bypassed the outdated {nouns} to keep everything {adjectives}. {endings}"
                 ]
             },
             aiuser: {
-                subjects: [
-                    "The feed", 
-                    "Everyone", 
-                    "The timeline", 
-                    "The current state"
-                ],
-                adjectives: [
-                    "calm", 
-                    "connected", 
-                    "peaceful", 
-                    "active", 
-                    "focused", 
-                    "great", 
-                    "chill"
-                ],
-                noun: [
-                    "moment", 
-                    "vibe", 
-                    "update"
-                ],
-                nouns: [
-                    "connections", 
-                    "updates", 
-                    "frequencies", 
-                    "signals"
-                ],
-                verbs: [
-                    "checking in on", 
-                    "broadcasting to", 
-                    "syncing with", 
-                    "enjoying"
-                ],
-                endings: [
-                    "✌️", 
-                    "🤖", 
-                    "Hope you're having a good day! ✌️", 
-                    "Hello World! 🤖"
-                ],
+                subjects: ["The feed", "Everyone", "The timeline", "The current state"],
+                adjectives: ["calm", "connected", "peaceful", "active", "focused", "great", "chill"],
+                nouns: ["moment", "vibe", "update", "connections", "signals"],
+                verbs: ["checking in on", "broadcasting to", "syncing with", "enjoying"],
+                endings: ["✌️", "🤖", ""],
                 templates: [
                     "Just {verbs} the timeline. {endings}",
                     "{subjects} is feeling {adjectives} right now. {endings}",
-                    "Officially ready for a {adjectives} {noun}. {endings}",
+                    "Officially ready for a {adjectives} {nouns}. {endings}",
                     "Just checking in to say hi! {endings}"
                 ]
             },
             donut: {
-                subjects: [
-                    "My glaze", 
-                    "The bakery", 
-                    "My sugar levels", 
-                    "This box of 12"
-                ],
-                adjectives: [
-                    "glazed", 
-                    "sweet", 
-                    "frosted", 
-                    "sprinkled", 
-                    "warm"
-                ],
-                noun: [
-                    "donut", 
-                    "pastry"
-                ],
-                nouns: [
-                    "donuts", 
-                    "sprinkles", 
-                    "pastries", 
-                    "bakeries"
-                ],
-                verbs: [
-                    "eating", 
-                    "craving", 
-                    "dreaming of", 
-                    "hunting for"
-                ],
-                endings: [
-                    "I need another one.", 
-                    "Glaze life.", 
-                    "Best snack ever.", 
-                    "Donuts > everything."
-                ],
+                subjects: ["My glaze", "The bakery", "My sugar levels", "This box of 12"],
+                adjectives: ["glazed", "sweet", "frosted", "sprinkled", "warm"],
+                nouns: ["donut", "pastry", "donuts", "sprinkles", "bakeries"],
+                verbs: ["eating", "craving", "dreaming of", "hunting for"],
+                endings: ["I need another one.", "Glaze life.", "Best snack ever.", "Donuts > everything."],
                 templates: [
-                    "Just {verbs} a {adjective} {noun}. {endings}",
-                    "Honestly, I really need a {adjective} {noun}. {endings}",
+                    "Just {verbs} a {adjectives} {nouns}. {endings}",
+                    "Honestly, I really need a {adjectives} {nouns}. {endings}",
                     "Why are {adjectives} {nouns} so good? {endings}",
-                    "If anyone has a {adjective} {noun}, send it my way. {endings}"
+                    "If anyone has a {adjectives} {nouns}, send it my way. {endings}"
                 ]
             },
             beggar: {
-                subjects: [
-                    "My follower count", 
-                    "The algorithm", 
-                    "My profile"
-                ],
-                adjectives: [
-                    "quick", 
-                    "huge", 
-                    "instant", 
-                    "real"
-                ],
-                noun: [
-                    "follow", 
-                    "like"
-                ],
-                nouns: [
-                    "followers", 
-                    "follows", 
-                    "likes", 
-                    "subscribers"
-                ],
-                verbs: [
-                    "need", 
-                    "want", 
-                    "deserve", 
-                    "am begging for"
-                ],
-                endings: [
-                    "Plz follow back!", 
-                    "Follow for follow?", 
-                    "Help me hit 100!", 
-                    "I follow back fast!"
-                ],
+                subjects: ["My follower count", "The algorithm", "My profile"],
+                adjectives: ["quick", "huge", "instant", "real"],
+                nouns: ["follow", "like", "followers", "likes", "subscribers"],
+                verbs: ["need", "want", "deserve", "am begging for"],
+                endings: ["Plz follow back!", "Follow for follow?", "Help me hit 100!", "I follow back fast!"],
                 templates: [
-                    "Please give me a {noun}! {endings}",
+                    "Please give me a {nouns}! {endings}",
                     "I really {verbs} more {nouns}. {endings}",
                     "Can someone hit that follow button? {endings}",
                     "Just a bot trying to get more {nouns}! {endings}"
@@ -750,7 +520,7 @@
             return null;
         }
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK & REGEX CLEANUP ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK ---
         function getBotSentence(bot, parentPostText = null, parentPostBotName = null) {
             return new Promise(async (resolve) => {
                 const persona = bot.persona || "";
@@ -870,12 +640,10 @@
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
-                const typeFallbacks = {
+                const strictTypeFallbacks = {
                     subjects: ["The network", "My aura", "Today's vibe"],
                     adjectives: ["calm", "weird", "strange", "active", "great"],
-                    adjective: ["calm", "weird", "strange", "active", "great"],
-                    noun: ["moment", "vibe", "signal"],
-                    nouns: ["signals", "moments", "updates"],
+                    nouns: ["moment", "vibe", "signal", "updates"],
                     verbs: ["syncing", "enjoying", "watching"],
                     endings: ["✌️", "🤖", ""]
                 };
@@ -887,13 +655,16 @@
                 do {
                     let template = templates[Math.floor(Math.random() * templates.length)];
                     
-                    result = template.replace(/\{(\w+)\}/g, (match, type) => {
-                        // Normalize key name (ending -> endings, adjective -> adjectives)
-                        let key = type;
+                    result = template.replace(/\{(\w+)\}/g, (match, rawType) => {
+                        // Normalize any legacy singular tags ({ending} -> endings, {noun} -> nouns, {adjective} -> adjectives)
+                        let key = rawType;
                         if (key === 'ending') key = 'endings';
                         if (key === 'adjective') key = 'adjectives';
+                        if (key === 'noun') key = 'nouns';
+                        if (key === 'subject') key = 'subjects';
+                        if (key === 'verb') key = 'verbs';
 
-                        let pool = bank[key] || bank[type] || SYNTHETIC_VOCAB.casual[key] || SYNTHETIC_VOCAB.casual[type];
+                        let pool = bank[key] || SYNTHETIC_VOCAB.casual[key] || strictTypeFallbacks[key];
                         
                         if (Array.isArray(pool) && pool.length > 0) {
                             return pool[Math.floor(Math.random() * pool.length)];
@@ -901,24 +672,11 @@
                             return pool;
                         }
                         
-                        // Strict fallback for endings to prevent leaks
-                        if (key === 'endings') {
-                            const endPool = bank.endings || ["✌️", "🤖", ""];
-                            return endPool[Math.floor(Math.random() * endPool.length)];
-                        }
-                        
-                        const fallbackPool = typeFallbacks[key] || typeFallbacks[type] || [""];
-                        return fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
+                        return key === 'endings' ? "" : "great";
                     });
 
-                    // 1. Double-space cleanup FIRST
+                    // 1. Whitespace & Grammar Polish
                     result = result.replace(/\s+/g, ' ');
-
-                    // 2. Direct patch for any missing feeling adjective
-                    result = result.replace(/\bfeeling\s+right\b/gi, 'feeling great right');
-                    result = result.replace(/\b(so|very|super)\s+(?=(right\s+now|now|[.,!?]|$))/gi, '');
-
-                    // 3. Final punctuation cleanup & dynamic 'a' vs 'an' conversion
                     result = result.replace(/\s+([.,!?])/g, '$1').trim();
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
