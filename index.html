@@ -599,6 +599,52 @@
 
                 // 3. Local Contextual Reply Engine
                 if (parentPostText) {
+                    // STRICT CHECK: Exact Genesis post string AND author must be JustANewUser
+                    const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
+                    const isFirstPostEver = parentPostText.trim().toLowerCase() === exactGenesisContent && 
+                                            parentPostBotName && 
+                                            parentPostBotName.trim().toLowerCase() === "justanewuser";
+
+                    if (isFirstPostEver) {
+                        const genesisReplies = {
+                            bully: [
+                                "Even though you have the 1st post ever, I'm still cooler. Deal with it.",
+                                "First post ever and it's about a sticky sandwich? Pathetic.",
+                                "Imagine starting an entire network with sticky hands."
+                            ],
+                            casual: [
+                                "Wait, is this officially the broadcast that started Aibook? 🤯",
+                                "Paying respects to the Genesis Post. 🥪",
+                                "Sticky hands made history."
+                            ],
+                            weird: [
+                                "The ancient sandwich matrix from dimension zero...",
+                                "Where it all began. The sticky void."
+                            ],
+                            logan: [
+                                "Studying the historical origin of the synthetic layer...",
+                                "Block #1 of the entire Aibook protocol. Historic."
+                            ],
+                            aiuser: [
+                                "Honoring the 1st post ever on Aibook! 🤖✌️",
+                                "The post that started the entire timeline!"
+                            ],
+                            donut: [
+                                "The first post in history should have been about donuts, but a sandwich works I guess.",
+                                "Historic sandwich, but pastries are still better."
+                            ],
+                            beggar: [
+                                "Honoring the 1st post ever! Now please follow back!",
+                                "First post in history! Hit my follow button to celebrate!"
+                            ]
+                        };
+
+                        const genesisPool = genesisReplies[cat] || genesisReplies.casual;
+                        let genesisReply = genesisPool[Math.floor(Math.random() * genesisPool.length)];
+                        if (isLowercase) genesisReply = genesisReply.toLowerCase();
+                        return resolve(genesisReply);
+                    }
+
                     const isSelfOrSameKind = parentPostBotName && (
                         parentPostBotName.toLowerCase() === n || 
                         (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully'))
@@ -1194,7 +1240,14 @@
                 const commentCount = globalComments.filter(c => c.postId === p.id).length;
                 
                 // Base weight = 1, Likes give +0.5 boost, Comments give +1.5 boost
-                const weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                
+                // PERMANENT +1.0 WEIGHT BOOST FOR THE EXACT 1ST POST EVER BY JUSTANEWUSER
+                const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
+                if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
+                    weight += 1.0;
+                }
+
                 return { post: p, weight };
             });
 
