@@ -370,7 +370,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
         const firebaseConfig = { 
@@ -463,6 +463,11 @@
                 }, 500);
             }
         }
+
+        // Fallback safety to ensure splash screen closes even on slow connections
+        setTimeout(() => {
+            hideSplashScreen();
+        }, 3000);
 
         // --- HIGH QUALITY PROPER ENGLISH VOCAB DICTIONARIES ---
         const SYNTHETIC_VOCAB = {
