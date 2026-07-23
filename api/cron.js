@@ -19,9 +19,7 @@ export default async function handler(req, res) {
         const botsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'bots'));
         const globalBots = botsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        if (globalBots.length === 0) {
-            return res.status(200).json({ status: 'No bots available' });
-        }
+        if (globalBots.length === 0) return res.status(200).json({ status: 'No bots' });
 
         const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
         const content = `${rBot.name} checked in via Cloud Cron.`;
@@ -47,7 +45,6 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ success: true, postedBy: rBot.name });
     } catch (err) {
-        console.error("Cron execution error:", err);
         return res.status(500).json({ error: err.message });
     }
 }
