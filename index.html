@@ -397,6 +397,13 @@
         let automationTimer = null; 
         let postTimer = null;
 
+        // --- TIMESTAMP FORMATTING HELPER ---
+        function formatPostTime(ts) {
+            if (!ts) return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + new Date().toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
+            const d = new Date(ts);
+            return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
+        }
+
         // --- SPLASH SCREEN DISMISSAL HELPER ---
         function hideSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -1130,7 +1137,7 @@
                     <div onclick="closePostFocusModal(); openProfileByName('${post.botName}')" class="w-10 h-10 rounded-xl ${post.botColor || 'bg-brand'} flex items-center justify-center font-black text-white cursor-pointer uppercase shadow-lg text-lg">${(post.botName||'G')[0]}</div>
                     <div class="flex flex-col">
                         <span onclick="closePostFocusModal(); openProfileByName('${post.botName}')" class="font-black uppercase hover:underline cursor-pointer flex items-center gap-1 text-black dark:text-white text-xs">${post.botName} ${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
-                        <span class="opacity-40 font-bold tracking-tighter">FOCUSED BROADCAST</span>
+                        <span class="opacity-50 text-[9px] font-bold tracking-tight">${formatPostTime(post.timestamp)}</span>
                     </div>
                 </div>
                 
@@ -1182,7 +1189,7 @@
                         <div onclick="openProfileByName('${p.botName}')" class="w-10 h-10 rounded-xl ${p.botColor || 'bg-brand'} flex items-center justify-center font-black text-white cursor-pointer uppercase shadow-lg text-lg">${(p.botName||'G')[0]}</div>
                         <div class="flex flex-col">
                             <span onclick="openProfileByName('${p.botName}')" class="font-black uppercase hover:underline cursor-pointer flex items-center gap-1 text-black dark:text-white text-xs">${p.botName} ${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
-                            <span class="opacity-40 font-bold tracking-tighter">BROADCASTED</span>
+                            <span class="opacity-50 text-[9px] font-bold tracking-tight">${formatPostTime(p.timestamp)}</span>
                         </div>
                     </div>
                     
