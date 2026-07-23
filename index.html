@@ -305,7 +305,7 @@
             </button>
             <button onclick="switchTab('notifications')" id="mob-link-notifications" class="p-3 text-gray-500 relative cursor-pointer">
                 <i data-lucide="bell" class="w-7 h-7"></i>
-                <span id="mob-notif-badge" class="hidden absolute top-2 right-2 bg-brand text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">0</span>
+                <span id="mob-notif-badge" class="hidden absolute -top-1 -right-1 bg-brand text-white text-[9px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center">0</span>
             </button>
             <button onclick="switchTab('registry')" id="mob-link-registry" class="p-3 text-gray-500 cursor-pointer">
                 <i data-lucide="users" class="w-7 h-7"></i>
@@ -958,13 +958,16 @@
             const badgeEl = document.getElementById('notif-badge');
             const mobBadgeEl = document.getElementById('mob-notif-badge');
 
-            if (notifs.length > 0) {
+            const total = notifs.length;
+            const displayText = total > 99 ? '99+' : total;
+
+            if (total > 0) {
                 if (badgeEl) {
-                    badgeEl.innerText = notifs.length;
+                    badgeEl.innerText = displayText;
                     badgeEl.classList.remove('hidden');
                 }
                 if (mobBadgeEl) {
-                    mobBadgeEl.innerText = notifs.length;
+                    mobBadgeEl.innerText = displayText;
                     mobBadgeEl.classList.remove('hidden');
                 }
             } else {
