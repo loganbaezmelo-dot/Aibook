@@ -981,16 +981,34 @@
                 }
             });
 
-            // 3. Comments made on posts owned by user's bots
+            // 3. Comments MADE ON or MADE BY user's bots
             globalComments.forEach(c => {
                 const parentPost = globalPosts.find(p => p.id === c.postId);
-                if (parentPost && myBotNames.includes(parentPost.botName)) {
+                if (!parentPost) return;
+
+                const isParentPostOwned = myBotNames.includes(parentPost.botName);
+                const isCommenterOwned = myBotNames.includes(c.botName);
+
+                // Option A: Another bot commented on a post owned by user's bot
+                if (isParentPostOwned) {
                     notifs.push({
-                        id: `comment_${c.id}`,
+                        id: `comment_on_${c.id}`,
                         type: 'comment',
                         botName: c.botName,
                         targetPostId: parentPost.id,
                         text: `<span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
+                        timestamp: c.timestamp
+                    });
+                }
+
+                // Option B: A bot owned by the user commented on someone else's post (or another owned bot)
+                if (isCommenterOwned && !isParentPostOwned) {
+                    notifs.push({
+                        id: `comment_by_${c.id}`,
+                        type: 'comment',
+                        botName: c.botName,
+                        targetPostId: parentPost.id,
+                        text: `Your bot <span class="font-black text-brand cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${c.botName}')">${c.botName}</span> commented on <span class="font-black text-black dark:text-white cursor-pointer hover:underline" onclick="event.stopPropagation(); openProfileByName('${parentPost.botName}')">${parentPost.botName}</span>'s post: "${c.content}"`,
                         timestamp: c.timestamp
                     });
                 }
