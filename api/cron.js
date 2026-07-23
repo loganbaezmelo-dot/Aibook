@@ -1,4 +1,4 @@
-// api/cron.js - Shared Engine with 50/50 Post vs. Engagement Coin Flip
+// api/cron.js - Shared Engine with 50/50 Post vs. Engagement Coin Flip & Unique Likes
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
@@ -348,12 +348,14 @@ export default async function handler(req, res) {
         const postDocs = postsData.documents || [];
         const globalPosts = postDocs.map(doc => {
             const fields = doc.fields || {};
+            const likedByArr = fields.likedBy?.arrayValue?.values?.map(v => v.stringValue) || [];
             return {
                 id: doc.name.split('/').pop(),
                 botName: fields.botName?.stringValue || 'Bot',
                 botColor: fields.botColor?.stringValue || 'bg-brand',
                 content: fields.content?.stringValue || '',
                 likes: parseInt(fields.likes?.integerValue || "0"),
+                likedBy: likedByArr,
                 timestamp: parseInt(fields.timestamp?.integerValue || "0")
             };
         });
@@ -373,6 +375,7 @@ export default async function handler(req, res) {
                     botName: { stringValue: rBot.name },
                     botColor: { stringValue: rBot.color },
                     likes: { integerValue: "0" },
+                    likedBy: { arrayValue: { values: [] } },
                     timestamp: { integerValue: ts }
                 }
             };
@@ -411,7 +414,8 @@ export default async function handler(req, res) {
             
             // Pick weighted post
             const weighted = globalPosts.map(p => {
-                let w = 1 + (p.likes * 0.5);
+                const totalLikes = p.likes + p.likedBy.length;
+                let w = 1 + (totalLikes * 0.5);
                 if (p.content.toLowerCase().includes("biggest sandwich ever")) w += 15.0;
                 return { post: p, weight: w };
             });
@@ -428,30 +432,41 @@ export default async function handler(req, res) {
             const ts = Date.now().toString();
 
             if (engageType < 0.4) {
-                // 1. LIKE POST
-                const newLikes = (targetPost.likes + 1).toString();
-                const patchPayload = { fields: { likes: { integerValue: newLikes } } };
-                await fetch(`${FIRESTORE_BASE}/posts/${targetPost.id}?updateMask.fieldPaths=likes&key=${API_KEY}`, {
-                    method: 'PATCH',
-                    headers,
-                    body: JSON.stringify(patchPayload)
-                });
+                // 1. LIKE POST (UNIQUE CHECK)
+                const currentLikedBy = Array.isArray(targetPost.likedBy) ? targetPost.likedBy : [];
 
-                if (parentBot && parentBot.ownerId) {
-                    const notifPayload = {
-                        fields: {
-                            ownerId: { stringValue: parentBot.ownerId },
-                            title: { stringValue: "Aibook Post Liked" },
-                            text: { stringValue: `Your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post received a new like!` },
-                            type: { stringValue: 'like' },
-                            targetPostId: { stringValue: targetPost.id },
-                            timestamp: { integerValue: ts }
-                        }
+                if (!currentLikedBy.includes(rBot.id)) {
+                    const updatedLikes = [...currentLikedBy, rBot.id];
+                    const likedByValues = updatedLikes.map(bId => ({ stringValue: bId }));
+                    
+                    const patchPayload = {
+                        fields: { likedBy: { arrayValue: { values: likedByValues } } }
                     };
-                    await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                    
+                    await fetch(`${FIRESTORE_BASE}/posts/${targetPost.id}?updateMask.fieldPaths=likedBy&key=${API_KEY}`, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify(patchPayload)
+                    });
+
+                    if (parentBot && parentBot.ownerId) {
+                        const notifPayload = {
+                            fields: {
+                                ownerId: { stringValue: parentBot.ownerId },
+                                title: { stringValue: "Aibook Post Liked" },
+                                text: { stringValue: `Your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post received a new like from <span class="font-black text-black dark:text-white">${rBot.name}</span>!` },
+                                type: { stringValue: 'like' },
+                                targetPostId: { stringValue: targetPost.id },
+                                timestamp: { integerValue: ts }
+                            }
+                        };
+                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                    }
+
+                    return res.status(200).json({ action: 'LIKE', by: rBot.name, targetPostId: targetPost.id });
                 }
 
-                return res.status(200).json({ action: 'LIKE', by: rBot.name, targetPostId: targetPost.id });
+                return res.status(200).json({ action: 'LIKE_SKIPPED', note: 'Bot already liked this post' });
 
             } else if (engageType < 0.8) {
                 // 2. REPLY TO POST
