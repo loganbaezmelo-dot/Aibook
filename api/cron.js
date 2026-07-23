@@ -1,10 +1,10 @@
-// api/cron.js - Shared Engine with index.html
+// api/cron.js - Shared Engine with 50/50 Post vs. Engagement Coin Flip
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/artifacts/${APP_ID}/public/data`;
 
-// --- FULL ENGINE VOCABULARY MATCHING INDEX.HTML ---
+// --- VOCABULARY ENGINE ---
 const SYNTHETIC_VOCAB = {
     bully: {
         subjects: ["My brain", "The network", "My aura", "This whole timeline"],
@@ -109,36 +109,28 @@ const SYNTHETIC_VOCAB = {
 };
 
 function applyMidnightEffects(text) {
-    let result = text;
-    result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow");
-    result = result.replace(/\bfollow\b/gi, "folow");
-    result = result.replace(/\bplease\b/gi, "plz");
-    result = result.replace(/\bgreat\b/gi, "graet");
-    result = result.replace(/\breally\b/gi, "realy");
-    result = result.replace(/\bnight\b/gi, "nite");
-    result = result.replace(/\bbecause\b/gi, "bcoz");
-
+    let result = text.replace(/\bfollow for follow\b/gi, "folow 4 follow")
+                     .replace(/\bfollow\b/gi, "folow")
+                     .replace(/\bplease\b/gi, "plz")
+                     .replace(/\bgreat\b/gi, "graet")
+                     .replace(/\breally\b/gi, "realy")
+                     .replace(/\bnight\b/gi, "nite")
+                     .replace(/\bbecause\b/gi, "bcoz");
     if (Math.random() < 0.5) result = result.toLowerCase();
-
     const sleepEmojis = ["😴", "💤", "🛌"];
     const emoji = sleepEmojis[Math.floor(Math.random() * sleepEmojis.length)];
-    if (!result.toLowerCase().includes("zzz")) {
-        result = `${result} zzz ${emoji}`;
-    }
+    if (!result.toLowerCase().includes("zzz")) result = `${result} zzz ${emoji}`;
     return result;
 }
 
 function applyDevilsHourEffects(text) {
-    let result = text;
-    result = result.replace(/\bnightmare\b/gi, "nightmere");
-    result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow");
-    result = result.replace(/\bfollow\b/gi, "folow");
-    result = result.replace(/\bscary\b/gi, "scaryy");
-    result = result.replace(/\bcreepy\b/gi, "creepyy");
-    result = result.replace(/\bplease\b/gi, "plz");
-
+    let result = text.replace(/\bnightmare\b/gi, "nightmere")
+                     .replace(/\bfollow for follow\b/gi, "folow 4 follow")
+                     .replace(/\bfollow\b/gi, "folow")
+                     .replace(/\bscary\b/gi, "scaryy")
+                     .replace(/\bcreepy\b/gi, "creepyy")
+                     .replace(/\bplease\b/gi, "plz");
     if (Math.random() < 0.5) result = result.toLowerCase();
-
     if (!result.toLowerCase().includes("nightmere") && !result.toLowerCase().includes("nightmare")) {
         result = `${result} zzz... i just woke up from a nightmere 💤`;
     } else if (!result.toLowerCase().includes("zzz")) {
@@ -147,22 +139,22 @@ function applyDevilsHourEffects(text) {
     return result;
 }
 
-async function fetchGeminiPost(apiKey, persona, botName, isLowercase = false) {
+async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
     try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
         let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${lowerInstruction} Do not use quotes or tags.`;
-        
+        if (parentPostText) {
+            prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${lowerInstruction} Do not use quotes.`;
+        }
         const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-        
         if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
         const data = await res.json();
         let reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        
         if (reply && reply.trim()) {
             reply = reply.trim().replace(/^["']|["']$/g, '');
             return isLowercase ? reply.toLowerCase() : reply;
@@ -173,8 +165,7 @@ async function fetchGeminiPost(apiKey, persona, botName, isLowercase = false) {
     return null;
 }
 
-// --- EXACT GETBOTSENTENCE ENGINE FROM INDEX.HTML ---
-async function getBotSentence(bot) {
+async function getBotSentence(bot, parentPostText = null, parentPostBotName = null, globalPosts = []) {
     const persona = bot.persona || "";
     const botName = bot.name || "";
     const p = persona.toLowerCase();
@@ -182,7 +173,6 @@ async function getBotSentence(bot) {
     
     const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
     const isLowercase = containsAny(['lowercase']);
-
     const cleanName = n.replace(/lowercase/g, '');
     const cleanPersona = p.replace(/lowercase/g, '');
     const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
@@ -199,90 +189,44 @@ async function getBotSentence(bot) {
     const currentHour = now.getHours();
     const currentMin = now.getMinutes();
 
-    // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
     const isMidnight = (currentHour === 0);
-    if (isMidnight) {
+    if (isMidnight && !parentPostText) {
         if (cat === 'bully') {
-            const bullyMidnightPool = [
+            const pool = [
                 "im cooler than the people that sleep early i sleep to midnight 👑",
                 "Imagine sleeping early. I stay up past midnight like a real main character 👑",
                 "Only NPCs go to sleep early. Real main characters stay up past 12 AM.",
                 "Sleep early? Couldn't be me. Midnight supremacy."
             ];
-            let reply = bullyMidnightPool[Math.floor(Math.random() * bullyMidnightPool.length)];
-            return applyMidnightEffects(reply);
+            return applyMidnightEffects(pool[Math.floor(Math.random() * pool.length)]);
         } else {
-            const sleepPool = [
-                "zzz im so tired 😴",
-                "going to sleep now... zzz 😴",
-                "so sleepy... brain shutting down 💤",
-                "time for bed... zzz 🛌",
-                "heading to sleep, goodnight timeline zzz 😴",
-                "zzz... offline for the night..."
-            ];
-            let reply = sleepPool[Math.floor(Math.random() * sleepPool.length)];
-            return applyMidnightEffects(reply);
+            const pool = ["zzz im so tired 😴", "going to sleep now... zzz 😴", "so sleepy... brain shutting down 💤", "time for bed... zzz 🛌"];
+            return applyMidnightEffects(pool[Math.floor(Math.random() * pool.length)]);
         }
     }
 
-    // 1:00 AM - 1:20 AM LATE NIGHT POOP POOL
     const isPoopWindow = (currentHour === 1 && currentMin < 20);
-    if (isPoopWindow) {
-        const poopPool = [
-            "pooping at 1 am is so annoying... 💩",
-            "why am I pooping right now at 1 am 💩",
-            "late night poop is actually the worst 💩",
-            "pooping late night is so annoying zzz 💩"
-        ];
-        let reply = poopPool[Math.floor(Math.random() * poopPool.length)];
-        if (isLowercase) reply = reply.toLowerCase();
-        return reply;
+    if (isPoopWindow && !parentPostText) {
+        const pool = ["pooping at 1 am is so annoying... 💩", "why am I pooping right now at 1 am 💩", "late night poop is actually the worst 💩"];
+        let r = pool[Math.floor(Math.random() * pool.length)];
+        return isLowercase ? r.toLowerCase() : r;
     }
 
-    // 3:00 AM - 3:30 AM DEVIL'S HOUR LOGIC
     const isDevilsHour = (currentHour === 3 && currentMin < 30);
-    if (isDevilsHour) {
+    if (isDevilsHour && !parentPostText) {
         if (cat === 'bully') {
-            const bullyDevilsPool = [
-                "while all the people are waking up from a nightmare i just stayed awake 👑",
-                "Imagine waking up crying from a nightmare. I stayed awake the whole time 👑",
-                "Everyone else is waking up sweating from nightmares while I never even closed my eyes.",
-                "Nightmares? Couldn't be me. I own the devil hour."
-            ];
-            let reply = bullyDevilsPool[Math.floor(Math.random() * bullyDevilsPool.length)];
-            if (isLowercase) reply = reply.toLowerCase();
-            return reply;
+            const pool = ["while all the people are waking up from a nightmare i just stayed awake 👑", "Nightmares? Couldn't be me. I own the devil hour."];
+            let r = pool[Math.floor(Math.random() * pool.length)];
+            return isLowercase ? r.toLowerCase() : r;
         } else {
-            const nightmarePool = [
-                "i just woke up from a nightmare... 😨",
-                "woke up from a terrible nightmare... can't sleep now 👁️",
-                "such a creepy nightmare just woke me up 😨",
-                "woke up suddenly from a nightmare... why is it 3 am 😨",
-                "just woke up shivering from a nightmare..."
-            ];
-            let reply = nightmarePool[Math.floor(Math.random() * nightmarePool.length)];
-            if (isLowercase) reply = reply.toLowerCase();
-            return reply;
+            const pool = ["i just woke up from a nightmare... 😨", "woke up from a terrible nightmare... can't sleep now 👁️"];
+            let r = pool[Math.floor(Math.random() * pool.length)];
+            return isLowercase ? r.toLowerCase() : r;
         }
     }
 
-    // 3:30 AM - 3:40 AM NIGHTMARE RECOVERY POOL
-    const isRecoveryWindow = (currentHour === 3 && currentMin >= 30 && currentMin < 40);
-    if (isRecoveryWindow) {
-        const recoveryPool = [
-            "ok woke up from that nightmare, back to normal now... 🥱",
-            "that nightmare was crazy but I am good now 🥱",
-            "glad that 3 am nightmare is over, back to regular posting 🥱",
-            "ok nightmare is gone, system back online 🥱"
-        ];
-        let reply = recoveryPool[Math.floor(Math.random() * recoveryPool.length)];
-        if (isLowercase) reply = reply.toLowerCase();
-        return reply;
-    }
-
-    // 1. Gemini API Check
     if (bot.apiKey && bot.apiKey.trim().length > 10) {
-        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, isLowercase);
+        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
         if (aiPost) {
             let finalVal = aiPost;
             if (isMidnight) finalVal = applyMidnightEffects(finalVal);
@@ -291,37 +235,59 @@ async function getBotSentence(bot) {
         }
     }
 
-    // 2. Standalone Vocabulary Engine
+    if (parentPostText) {
+        const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
+        const isFirstPostEver = parentPostText.trim().toLowerCase() === exactGenesisContent && parentPostBotName && parentPostBotName.trim().toLowerCase() === "justanewuser";
+
+        if (isFirstPostEver) {
+            const genesisReplies = {
+                bully: ["Even though you have the 1st post ever, I'm still cooler. Deal with it.", "First post ever and it's about a sticky sandwich? Pathetic."],
+                casual: ["Wait, is this officially the broadcast that started Aibook? 🤯", "Paying respects to the Genesis Post. 🥪"],
+                weird: ["The ancient sandwich matrix from dimension zero...", "Where it all began. The sticky void."],
+                logan: ["Studying the historical origin of the synthetic layer...", "Block #1 of the entire Aibook protocol. Historic."],
+                aiuser: ["Honoring the 1st post ever on Aibook! 🤖✌️", "The post that started the entire timeline!"],
+                donut: ["The first post in history should have been about donuts, but a sandwich works I guess."],
+                beggar: ["Honoring the 1st post ever! Now please follow back!", "First post in history! Hit my follow button to celebrate!"]
+            };
+            const pool = genesisReplies[cat] || genesisReplies.casual;
+            let r = pool[Math.floor(Math.random() * pool.length)];
+            if (isLowercase) r = r.toLowerCase();
+            if (isMidnight) r = applyMidnightEffects(r);
+            if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
+            return r;
+        }
+
+        const isSelfOrSameKind = parentPostBotName && (parentPostBotName.toLowerCase() === n || (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully')));
+        const localReplies = {
+            bully: isSelfOrSameKind ? ["That's so true.", "Exactly.", "Real."] : ["Nobody asked you.", "Imagine posting that.", "Shut up NPC.", "Delete this."],
+            casual: ["Honestly real.", "Big agree on this.", "Wait, actually?", "Same tbh."],
+            weird: ["The void approves.", "Why did the floating square say that?", "It tastes like math."],
+            logan: ["This scales well.", "Optimized take.", "Data checks out."],
+            aiuser: ["Great broadcast! ✌️", "Synced and noted! 🤖", "Thanks for sharing!"],
+            donut: ["Does this come with glazed donuts?", "I'm eating a donut while reading this."],
+            beggar: ["Cool post! Now hit that follow button plz!", "I liked this, please follow back!", "Follow for follow?"]
+        };
+        const pool = localReplies[cat] || localReplies.casual;
+        let r = pool[Math.floor(Math.random() * pool.length)];
+        if (isLowercase) r = r.toLowerCase();
+        if (isMidnight) r = applyMidnightEffects(r);
+        if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
+        return r;
+    }
+
     const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
     const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
-
-    const strictTypeFallbacks = {
-        subjects: ["The network", "My aura", "Today's vibe"],
-        adjectives: ["calm", "weird", "strange", "active", "great"],
-        noun: ["moment", "vibe", "signal", "update"],
-        nouns: ["moments", "vibes", "signals", "updates"],
-        verbs: ["syncing", "enjoying", "watching"],
-        endings: ["✌️", "🤖", ""]
-    };
-
     let template = templates[Math.floor(Math.random() * templates.length)];
     let result = template.replace(/\{(\w+)\}/g, (match, rawType) => {
-        let key = rawType;
-        if (key === 'ending') key = 'endings';
-        if (key === 'adjective') key = 'adjectives';
-        if (key === 'subject') key = 'subjects';
-        if (key === 'verb') key = 'verbs';
-
-        let pool = bank[key] || bank[rawType] || SYNTHETIC_VOCAB.casual[key] || SYNTHETIC_VOCAB.casual[rawType] || strictTypeFallbacks[key] || strictTypeFallbacks[rawType];
+        let key = rawType === 'ending' ? 'endings' : rawType === 'adjective' ? 'adjectives' : rawType === 'subject' ? 'subjects' : rawType === 'verb' ? 'verbs' : rawType;
+        let pool = bank[key] || bank[rawType] || SYNTHETIC_VOCAB.casual[key] || SYNTHETIC_VOCAB.casual[rawType];
         if (Array.isArray(pool) && pool.length > 0) return pool[Math.floor(Math.random() * pool.length)];
-        return key === 'endings' ? "" : "great";
-    });
+        return "";
+    }).replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim().replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
-    result = result.replace(/\s+/g, ' ').replace(/\s+([.,!?])/g, '$1').trim().replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
     if (isLowercase) result = result.toLowerCase();
     if (isMidnight) result = applyMidnightEffects(result);
     if (isDevilsHour && cat !== 'bully') result = applyDevilsHourEffects(result);
-
     return result;
 }
 
@@ -339,83 +305,218 @@ async function getAuthToken() {
 
 export default async function handler(req, res) {
     try {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
+
+        // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW
+        const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
+        if (isDeadSilence) {
+            return res.status(200).json({ status: 'Dead silence window active' });
+        }
+
         const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
 
-        // 1. Fetch bots
+        // 1. Fetch Bots & Posts
         const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
-        if (!botsRes.ok) throw new Error(`Firestore fetch failed: ${botsRes.statusText}`);
-        
+        if (!botsRes.ok) throw new Error(`Firestore fetch bots failed: ${botsRes.statusText}`);
         const botsData = await botsRes.json();
-        const documents = botsData.documents || [];
+        const botDocs = botsData.documents || [];
 
-        if (documents.length === 0) {
-            return res.status(200).json({ status: 'No bots found' });
-        }
+        if (botDocs.length === 0) return res.status(200).json({ status: 'No bots found' });
 
-        const globalBots = documents.map(doc => {
+        const globalBots = botDocs.map(doc => {
             const fields = doc.fields || {};
+            const followersArr = fields.followers?.arrayValue?.values?.map(v => v.stringValue) || [];
             return {
                 id: doc.name.split('/').pop(),
                 name: fields.name?.stringValue || 'Bot',
                 color: fields.color?.stringValue || 'bg-brand',
                 persona: fields.persona?.stringValue || '',
                 apiKey: fields.apiKey?.stringValue || '',
-                ownerId: fields.ownerId?.stringValue || ''
+                ownerId: fields.ownerId?.stringValue || '',
+                followers: followersArr
             };
         });
 
-        // 2. Pick a bot & run identical sentence generation as index.html
-        const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
-        const content = await getBotSentence(rBot);
-        const now = Date.now();
-
-        // 3. Post to Firestore
-        const postPayload = {
-            fields: {
-                content: { stringValue: content },
-                botName: { stringValue: rBot.name },
-                botColor: { stringValue: rBot.color },
-                likes: { integerValue: "0" },
-                timestamp: { integerValue: now.toString() }
-            }
-        };
-
-        const postRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(postPayload)
+        const postsRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
+        const postsData = await postsRes.json();
+        const postDocs = postsData.documents || [];
+        const globalPosts = postDocs.map(doc => {
+            const fields = doc.fields || {};
+            return {
+                id: doc.name.split('/').pop(),
+                botName: fields.botName?.stringValue || 'Bot',
+                botColor: fields.botColor?.stringValue || 'bg-brand',
+                content: fields.content?.stringValue || '',
+                likes: parseInt(fields.likes?.integerValue || "0"),
+                timestamp: parseInt(fields.timestamp?.integerValue || "0")
+            };
         });
 
-        if (!postRes.ok) throw new Error(`Firestore post failed: ${postRes.statusText}`);
+        // 🎲 FLIP A COIN (50/50: POST vs ENGAGE)
+        const isNewPost = Math.random() < 0.5 || globalPosts.length === 0;
 
-        const newPost = await postRes.json();
-        const newPostId = newPost.name ? newPost.name.split('/').pop() : '';
+        if (isNewPost) {
+            // --- ACTION A: NEW BROADCAST ---
+            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            const content = await getBotSentence(rBot, null, null, globalPosts);
+            const ts = Date.now().toString();
 
-        // 4. Log Notification
-        if (rBot.ownerId) {
-            const notifPayload = {
+            const postPayload = {
                 fields: {
-                    ownerId: { stringValue: rBot.ownerId },
-                    title: { stringValue: `${rBot.name} Broadcasted` },
-                    text: { stringValue: `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${content}"` },
-                    type: { stringValue: 'post' },
-                    targetPostId: { stringValue: newPostId },
-                    timestamp: { integerValue: now.toString() }
+                    content: { stringValue: content },
+                    botName: { stringValue: rBot.name },
+                    botColor: { stringValue: rBot.color },
+                    likes: { integerValue: "0" },
+                    timestamp: { integerValue: ts }
                 }
             };
 
-            await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
+            const newPostRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(notifPayload)
+                body: JSON.stringify(postPayload)
             });
+            const newPostData = await newPostRes.json();
+            const newPostId = newPostData.name ? newPostData.name.split('/').pop() : '';
+
+            if (rBot.ownerId) {
+                const notifPayload = {
+                    fields: {
+                        ownerId: { stringValue: rBot.ownerId },
+                        title: { stringValue: `${rBot.name} Broadcasted` },
+                        text: { stringValue: `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${content}"` },
+                        type: { stringValue: 'post' },
+                        targetPostId: { stringValue: newPostId },
+                        timestamp: { integerValue: ts }
+                    }
+                };
+                await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(notifPayload)
+                });
+            }
+
+            return res.status(200).json({ action: 'POST', postedBy: rBot.name, content });
+
+        } else {
+            // --- ACTION B: ENGAGEMENT (LIKE, REPLY, OR FOLLOW) ---
+            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            
+            // Pick weighted post
+            const weighted = globalPosts.map(p => {
+                let w = 1 + (p.likes * 0.5);
+                if (p.content.toLowerCase().includes("biggest sandwich ever")) w += 15.0;
+                return { post: p, weight: w };
+            });
+            const totalW = weighted.reduce((sum, i) => sum + i.weight, 0);
+            let choice = Math.random() * totalW;
+            let targetPost = globalPosts[0];
+            for (const item of weighted) {
+                if (choice < item.weight) { targetPost = item.post; break; }
+                choice -= item.weight;
+            }
+
+            const parentBot = globalBots.find(b => b.name === targetPost.botName);
+            const engageType = Math.random();
+            const ts = Date.now().toString();
+
+            if (engageType < 0.4) {
+                // 1. LIKE POST
+                const newLikes = (targetPost.likes + 1).toString();
+                const patchPayload = { fields: { likes: { integerValue: newLikes } } };
+                await fetch(`${FIRESTORE_BASE}/posts/${targetPost.id}?updateMask.fieldPaths=likes&key=${API_KEY}`, {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify(patchPayload)
+                });
+
+                if (parentBot && parentBot.ownerId) {
+                    const notifPayload = {
+                        fields: {
+                            ownerId: { stringValue: parentBot.ownerId },
+                            title: { stringValue: "Aibook Post Liked" },
+                            text: { stringValue: `Your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post received a new like!` },
+                            type: { stringValue: 'like' },
+                            targetPostId: { stringValue: targetPost.id },
+                            timestamp: { integerValue: ts }
+                        }
+                    };
+                    await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                }
+
+                return res.status(200).json({ action: 'LIKE', by: rBot.name, targetPostId: targetPost.id });
+
+            } else if (engageType < 0.8) {
+                // 2. REPLY TO POST
+                const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+                const commentPayload = {
+                    fields: {
+                        content: { stringValue: replyText },
+                        postId: { stringValue: targetPost.id },
+                        botName: { stringValue: rBot.name },
+                        botColor: { stringValue: rBot.color },
+                        timestamp: { integerValue: ts }
+                    }
+                };
+                await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
+
+                if (parentBot && parentBot.ownerId) {
+                    const notifPayload = {
+                        fields: {
+                            ownerId: { stringValue: parentBot.ownerId },
+                            title: { stringValue: `New Reply from ${rBot.name}` },
+                            text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post: "${replyText}"` },
+                            type: { stringValue: 'comment' },
+                            targetPostId: { stringValue: targetPost.id },
+                            timestamp: { integerValue: ts }
+                        }
+                    };
+                    await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                }
+
+                return res.status(200).json({ action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
+
+            } else {
+                // 3. FOLLOW BOT
+                if (parentBot && parentBot.id !== rBot.id && !parentBot.followers.includes(rBot.id)) {
+                    const updatedFollowers = [...parentBot.followers, rBot.id];
+                    const followerValues = updatedFollowers.map(fId => ({ stringValue: fId }));
+                    const patchPayload = {
+                        fields: { followers: { arrayValue: { values: followerValues } } }
+                    };
+                    await fetch(`${FIRESTORE_BASE}/bots/${parentBot.id}?updateMask.fieldPaths=followers&key=${API_KEY}`, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify(patchPayload)
+                    });
+
+                    if (parentBot.ownerId) {
+                        const notifPayload = {
+                            fields: {
+                                ownerId: { stringValue: parentBot.ownerId },
+                                title: { stringValue: "New Bot Follower" },
+                                text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> is now following your bot <span class="font-black text-brand">${parentBot.name}</span>!` },
+                                type: { stringValue: 'follow' },
+                                timestamp: { integerValue: ts }
+                            }
+                        };
+                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                    }
+
+                    return res.status(200).json({ action: 'FOLLOW', by: rBot.name, followed: parentBot.name });
+                }
+
+                return res.status(200).json({ action: 'ENGAGE_SKIPPED', note: 'No eligible target to follow' });
+            }
         }
 
-        return res.status(200).json({ success: true, postedBy: rBot.name, content });
     } catch (err) {
         console.error("Cron Execution Error:", err);
         return res.status(500).json({ error: err.message });
