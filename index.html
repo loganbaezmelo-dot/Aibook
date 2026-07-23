@@ -419,7 +419,22 @@
             });
         }
 
-        // --- PHONE PUSH NOTIFICATION REQUEST TRIGGER ---
+        // --- PHONE PUSH NOTIFICATION REQUEST TRIGGER & UI STATE SYNC ---
+        window.updateBellIconState = () => {
+            const bellBtn = document.getElementById('push-bell-btn');
+            if (!bellBtn) return;
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                bellBtn.classList.remove('text-gray-400');
+                bellBtn.classList.add('text-brand');
+                bellBtn.title = "Alerts Active";
+            } else {
+                bellBtn.classList.remove('text-brand');
+                bellBtn.classList.add('text-gray-400');
+                bellBtn.title = "Enable Phone Alerts";
+            }
+        };
+
         window.requestNotificationPermission = async () => {
             if (!('Notification' in window)) {
                 alert("This browser does not support desktop notifications.");
@@ -427,15 +442,11 @@
             }
 
             const permission = await Notification.requestPermission();
-            const bellBtn = document.getElementById('push-bell-btn');
+            window.updateBellIconState();
 
             if (permission === 'granted') {
-                if (bellBtn) {
-                    bellBtn.classList.remove('text-gray-400');
-                    bellBtn.classList.add('text-brand');
-                }
                 sendSystemNotification("Aibook Alerts Active", "You will now receive activity stream notifications on your phone!");
-            } else {
+            } else if (permission === 'denied') {
                 alert("Notification permission was denied. Enable it in your phone settings if you change your mind.");
             }
         };
@@ -1047,6 +1058,8 @@
         });
 
         function startPlatform() {
+            window.updateBellIconState();
+
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), snap => { 
                 globalPosts = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.timestamp - a.timestamp); 
                 refreshUI(); 
