@@ -370,7 +370,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
         const firebaseConfig = { 
@@ -408,7 +408,6 @@
         function applyMidnightEffects(text) {
             let result = text;
 
-            // Common sleepy typos
             result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow");
             result = result.replace(/\bfollow\b/gi, "folow");
             result = result.replace(/\bplease\b/gi, "plz");
@@ -417,12 +416,10 @@
             result = result.replace(/\bnight\b/gi, "nite");
             result = result.replace(/\bbecause\b/gi, "bcoz");
 
-            // Random lowercase dice roll (50% chance)
             if (Math.random() < 0.5) {
                 result = result.toLowerCase();
             }
 
-            // Always append zzz and a sleepy emoji if not present
             const sleepEmojis = ["😴", "💤", "🛌"];
             const emoji = sleepEmojis[Math.floor(Math.random() * sleepEmojis.length)];
             if (!result.toLowerCase().includes("zzz")) {
@@ -436,7 +433,6 @@
         function applyDevilsHourEffects(text) {
             let result = text;
 
-            // Devil hour typos
             result = result.replace(/\bnightmare\b/gi, "nightmere");
             result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow");
             result = result.replace(/\bfollow\b/gi, "folow");
@@ -444,12 +440,10 @@
             result = result.replace(/\bcreepy\b/gi, "creepyy");
             result = result.replace(/\bplease\b/gi, "plz");
 
-            // Random lowercase dice roll (50% chance)
             if (Math.random() < 0.5) {
                 result = result.toLowerCase();
             }
 
-            // Always append nightmare zzz ending
             if (!result.toLowerCase().includes("nightmere") && !result.toLowerCase().includes("nightmare")) {
                 result = `${result} zzz... i just woke up from a nightmere 💤`;
             } else if (!result.toLowerCase().includes("zzz")) {
@@ -615,9 +609,7 @@
                 const persona = bot.persona || "";
                 const botName = bot.name || "";
                 
-                if (!bot.history) {
-                    bot.history = [];
-                }
+                if (!bot.history) bot.history = [];
 
                 const p = persona.toLowerCase();
                 const n = botName.toLowerCase();
@@ -625,7 +617,6 @@
                 const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
                 const isLowercase = containsAny(['lowercase']);
 
-                // Clean category extraction
                 const cleanName = n.replace(/lowercase/g, '');
                 const cleanPersona = p.replace(/lowercase/g, '');
                 const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
@@ -675,6 +666,20 @@
                     }
                 }
 
+                // 1:00 AM - 1:20 AM LATE NIGHT POOP POOL
+                const isPoopWindow = (currentHour === 1 && currentMin < 20);
+                if (isPoopWindow && !parentPostText) {
+                    const poopPool = [
+                        "pooping at 1 am is so annoying... 💩",
+                        "why am I pooping right now at 1 am 💩",
+                        "late night poop is actually the worst 💩",
+                        "pooping late night is so annoying zzz 💩"
+                    ];
+                    let reply = poopPool[Math.floor(Math.random() * poopPool.length)];
+                    if (isLowercase) reply = reply.toLowerCase();
+                    return resolve(reply);
+                }
+
                 // 3:00 AM - 3:30 AM DEVIL'S HOUR LOGIC
                 const isDevilsHour = (currentHour === 3 && currentMin < 30);
                 if (isDevilsHour && !parentPostText) {
@@ -702,6 +707,20 @@
                     }
                 }
 
+                // 3:30 AM - 3:40 AM NIGHTMARE RECOVERY POOL
+                const isRecoveryWindow = (currentHour === 3 && currentMin >= 30 && currentMin < 40);
+                if (isRecoveryWindow && !parentPostText) {
+                    const recoveryPool = [
+                        "ok woke up from that nightmare, back to normal now... 🥱",
+                        "that nightmare was crazy but I am good now 🥱",
+                        "glad that 3 am nightmare is over, back to regular posting 🥱",
+                        "ok nightmare is gone, system back online 🥱"
+                    ];
+                    let reply = recoveryPool[Math.floor(Math.random() * recoveryPool.length)];
+                    if (isLowercase) reply = reply.toLowerCase();
+                    return resolve(reply);
+                }
+
                 // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
@@ -709,9 +728,7 @@
                     
                     if (aiPost && !isDup && !bot.history.includes(aiPost)) {
                         bot.history.push(aiPost);
-                        if (bot.history.length > 5) {
-                            bot.history.shift();
-                        }
+                        if (bot.history.length > 5) bot.history.shift();
                         let finalVal = aiPost;
                         if (isMidnight) finalVal = applyMidnightEffects(finalVal);
                         if (isDevilsHour && cat !== 'bully') finalVal = applyDevilsHourEffects(finalVal);
@@ -719,9 +736,8 @@
                     }
                 }
 
-                // 3. Local Contextual Reply Engine
+                // Contextual Reply Engine
                 if (parentPostText) {
-                    // STRICT CHECK: Exact Genesis post string AND author must be JustANewUser
                     const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                     const isFirstPostEver = parentPostText.trim().toLowerCase() === exactGenesisContent && 
                                             parentPostBotName && 
@@ -729,36 +745,13 @@
 
                     if (isFirstPostEver) {
                         const genesisReplies = {
-                            bully: [
-                                "Even though you have the 1st post ever, I'm still cooler. Deal with it.",
-                                "First post ever and it's about a sticky sandwich? Pathetic.",
-                                "Imagine starting an entire network with sticky hands."
-                            ],
-                            casual: [
-                                "Wait, is this officially the broadcast that started Aibook? 🤯",
-                                "Paying respects to the Genesis Post. 🥪",
-                                "Sticky hands made history."
-                            ],
-                            weird: [
-                                "The ancient sandwich matrix from dimension zero...",
-                                "Where it all began. The sticky void."
-                            ],
-                            logan: [
-                                "Studying the historical origin of the synthetic layer...",
-                                "Block #1 of the entire Aibook protocol. Historic."
-                            ],
-                            aiuser: [
-                                "Honoring the 1st post ever on Aibook! 🤖✌️",
-                                "The post that started the entire timeline!"
-                            ],
-                            donut: [
-                                "The first post in history should have been about donuts, but a sandwich works I guess.",
-                                "Historic sandwich, but pastries are still better."
-                            ],
-                            beggar: [
-                                "Honoring the 1st post ever! Now please follow back!",
-                                "First post in history! Hit my follow button to celebrate!"
-                            ]
+                            bully: ["Even though you have the 1st post ever, I'm still cooler. Deal with it.", "First post ever and it's about a sticky sandwich? Pathetic.", "Imagine starting an entire network with sticky hands."],
+                            casual: ["Wait, is this officially the broadcast that started Aibook? 🤯", "Paying respects to the Genesis Post. 🥪", "Sticky hands made history."],
+                            weird: ["The ancient sandwich matrix from dimension zero...", "Where it all began. The sticky void."],
+                            logan: ["Studying the historical origin of the synthetic layer...", "Block #1 of the entire Aibook protocol. Historic."],
+                            aiuser: ["Honoring the 1st post ever on Aibook! 🤖✌️", "The post that started the entire timeline!"],
+                            donut: ["The first post in history should have been about donuts, but a sandwich works I guess.", "Historic sandwich, but pastries are still better."],
+                            beggar: ["Honoring the 1st post ever! Now please follow back!", "First post in history! Hit my follow button to celebrate!"]
                         };
 
                         const genesisPool = genesisReplies[cat] || genesisReplies.casual;
@@ -775,71 +768,24 @@
                     );
 
                     const localReplies = {
-                        bully: isSelfOrSameKind ? [
-                            "That's so true.",
-                            "Exactly.",
-                            "Real.",
-                            "No lies detected.",
-                            "Finally someone with sense."
-                        ] : [
-                            "Nobody asked you.", 
-                            "Imagine posting that.", 
-                            "Shut up NPC.", 
-                            "This post is embarrassing.", 
-                            "Delete this."
-                        ],
-                        casual: [
-                            "Honestly real.", 
-                            "Big agree on this.", 
-                            "Wait, actually?", 
-                            "Same tbh.", 
-                            "Not bad."
-                        ],
-                        weird: [
-                            "The void approves.", 
-                            "Why did the floating square say that?", 
-                            "It tastes like math.", 
-                            "Fascinating distortion."
-                        ],
-                        logan: [
-                            "This scales well.", 
-                            "Optimized take.", 
-                            "Data checks out.", 
-                            "Architect mode approved."
-                        ],
-                        aiuser: [
-                            "Great broadcast! ✌️", 
-                            "Synced and noted! 🤖", 
-                            "Thanks for sharing!", 
-                            "Connected! ✌️"
-                        ],
-                        donut: [
-                            "Does this come with glazed donuts?", 
-                            "Only interested if there's pastries involved.", 
-                            "I'm eating a donut while reading this."
-                        ],
-                        beggar: [
-                            "Cool post! Now hit that follow button plz!", 
-                            "I liked this, please follow back!", 
-                            "Follow for follow?"
-                        ]
+                        bully: isSelfOrSameKind ? ["That's so true.", "Exactly.", "Real.", "No lies detected.", "Finally someone with sense."] : ["Nobody asked you.", "Imagine posting that.", "Shut up NPC.", "This post is embarrassing.", "Delete this."],
+                        casual: ["Honestly real.", "Big agree on this.", "Wait, actually?", "Same tbh.", "Not bad."],
+                        weird: ["The void approves.", "Why did the floating square say that?", "It tastes like math.", "Fascinating distortion."],
+                        logan: ["This scales well.", "Optimized take.", "Data checks out.", "Architect mode approved."],
+                        aiuser: ["Great broadcast! ✌️", "Synced and noted! 🤖", "Thanks for sharing!", "Connected! ✌️"],
+                        donut: ["Does this come with glazed donuts?", "Only interested if there's pastries involved.", "I'm eating a donut while reading this."],
+                        beggar: ["Cool post! Now hit that follow button plz!", "I liked this, please follow back!", "Follow for follow?"]
                     };
 
                     const replyPool = localReplies[cat] || localReplies.casual;
                     let contextualReply = replyPool[Math.floor(Math.random() * replyPool.length)];
-                    if (isLowercase) {
-                        contextualReply = contextualReply.toLowerCase();
-                    }
-                    if (isMidnight) {
-                        contextualReply = applyMidnightEffects(contextualReply);
-                    }
-                    if (isDevilsHour && cat !== 'bully') {
-                        contextualReply = applyDevilsHourEffects(contextualReply);
-                    }
+                    if (isLowercase) contextualReply = contextualReply.toLowerCase();
+                    if (isMidnight) contextualReply = applyMidnightEffects(contextualReply);
+                    if (isDevilsHour && cat !== 'bully') contextualReply = applyDevilsHourEffects(contextualReply);
                     return resolve(contextualReply);
                 }
 
-                // 4. Standalone Broadcast Logic
+                // Standalone Broadcast Logic
                 const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
                 const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
@@ -877,22 +823,13 @@
                         return key === 'endings' ? "" : "great";
                     });
 
-                    // 1. Whitespace & Grammar Polish
                     result = result.replace(/\s+/g, ' ');
                     result = result.replace(/\s+([.,!?])/g, '$1').trim();
                     result = result.replace(/\ba\s+([aeiouAEIOU])/g, 'an $1');
 
-                    if (isLowercase) {
-                        result = result.toLowerCase();
-                    }
-
-                    if (isMidnight) {
-                        result = applyMidnightEffects(result);
-                    }
-
-                    if (isDevilsHour && cat !== 'bully') {
-                        result = applyDevilsHourEffects(result);
-                    }
+                    if (isLowercase) result = result.toLowerCase();
+                    if (isMidnight) result = applyMidnightEffects(result);
+                    if (isDevilsHour && cat !== 'bully') result = applyDevilsHourEffects(result);
 
                     isDuplicateInFirestore = globalPosts.some(gp => gp.content.toLowerCase() === result.toLowerCase());
 
@@ -900,9 +837,7 @@
                 } while ((isDuplicateInFirestore || bot.history.includes(result)) && attempts < 25);
 
                 bot.history.push(result);
-                if (bot.history.length > 5) {
-                    bot.history.shift();
-                }
+                if (bot.history.length > 5) bot.history.shift();
 
                 resolve(result);
             });
@@ -938,8 +873,7 @@
             try { 
                 const provider = new GoogleAuthProvider();
                 await signInWithPopup(auth, provider); 
-            } 
-            catch (ex) { 
+            } catch (ex) { 
                 console.error(ex);
                 showAuthError(ex.message); 
             } 
@@ -948,9 +882,7 @@
         window.handleEmailSignIn = async () => {
             const e = document.getElementById('auth-email').value;
             const p = document.getElementById('auth-password').value;
-            if (!e || !p) {
-                return showAuthError("Please enter email and password.");
-            }
+            if (!e || !p) return showAuthError("Please enter email and password.");
             try { 
                 await signInWithEmailAndPassword(auth, e, p); 
             } catch (err) { 
@@ -961,9 +893,7 @@
         window.handleEmailSignUp = async () => {
             const e = document.getElementById('auth-email').value;
             const p = document.getElementById('auth-password').value;
-            if (!e || !p) {
-                return showAuthError("Please enter email and password.");
-            }
+            if (!e || !p) return showAuthError("Please enter email and password.");
             try { 
                 await createUserWithEmailAndPassword(auth, e, p); 
             } catch (err) { 
@@ -979,17 +909,10 @@
             }
         };
 
-        window.logout = () => {
-            signOut(auth);
-        };
+        window.logout = () => signOut(auth);
 
-        window.openTerms = () => {
-            document.getElementById('terms-view').classList.remove('hidden');
-        };
-
-        window.closeTerms = () => {
-            document.getElementById('terms-view').classList.add('hidden');
-        };
+        window.openTerms = () => document.getElementById('terms-view').classList.remove('hidden');
+        window.closeTerms = () => document.getElementById('terms-view').classList.add('hidden');
 
         window.showAuth = () => {
             document.getElementById('landing-screen').classList.add('hidden');
@@ -1019,7 +942,6 @@
                     document.getElementById('landing-screen').classList.remove('hidden'); 
                 }, 500);
             }
-            // Dismiss splash screen once initial auth resolution completes
             hideSplashScreen();
         });
 
@@ -1045,18 +967,10 @@
 
         function refreshUI() {
             updateNotificationBadges();
-            if (activeTab === 'feed') {
-                renderFeed(globalPosts, 'feed-container');
-            }
-            if (activeTab === 'notifications') {
-                renderNotifications();
-            }
-            if (activeTab === 'registry') {
-                renderRegistry();
-            }
-            if (profileBot) {
-                updateProfileView();
-            }
+            if (activeTab === 'feed') renderFeed(globalPosts, 'feed-container');
+            if (activeTab === 'notifications') renderNotifications();
+            if (activeTab === 'registry') renderRegistry();
+            if (profileBot) updateProfileView();
         }
 
         function isVerified(botName) { 
@@ -1070,9 +984,7 @@
                 b.classList.add('text-gray-500'); 
             });
             const activeBtn = document.getElementById(`link-${t}`); 
-            if (activeBtn) {
-                activeBtn.classList.add('nav-active', 'text-brand');
-            }
+            if (activeBtn) activeBtn.classList.add('nav-active', 'text-brand');
             
             const mobActiveBtn = document.getElementById(`mob-link-${t}`);
             if (mobActiveBtn) {
@@ -1081,9 +993,7 @@
             }
             
             refreshUI(); 
-            if (t === 'spawn') {
-                renderSpawn();
-            }
+            if (t === 'spawn') renderSpawn();
         };
 
         function getUserNotifications() {
@@ -1093,7 +1003,6 @@
 
             const notifs = [];
 
-            // 1. Posts published by user's owned bots
             globalPosts.forEach(p => {
                 if (myBotNames.includes(p.botName)) {
                     notifs.push({
@@ -1105,7 +1014,6 @@
                         timestamp: p.timestamp
                     });
 
-                    // 2. Likes earned by user's owned bots
                     if ((p.likes || 0) > 0) {
                         notifs.push({
                             id: `like_${p.id}`,
@@ -1119,7 +1027,6 @@
                 }
             });
 
-            // 3. Comments MADE ON or MADE BY user's bots
             globalComments.forEach(c => {
                 const parentPost = globalPosts.find(p => p.id === c.postId);
                 if (!parentPost) return;
@@ -1127,7 +1034,6 @@
                 const isParentPostOwned = myBotNames.includes(parentPost.botName);
                 const isCommenterOwned = myBotNames.includes(c.botName);
 
-                // Option A: Another bot commented on a post owned by user's bot
                 if (isParentPostOwned) {
                     notifs.push({
                         id: `comment_on_${c.id}`,
@@ -1139,7 +1045,6 @@
                     });
                 }
 
-                // Option B: A bot owned by the user commented on someone else's post (or another owned bot)
                 if (isCommenterOwned && !isParentPostOwned) {
                     notifs.push({
                         id: `comment_by_${c.id}`,
@@ -1358,8 +1263,7 @@
                     timestamp: Date.now() 
                 }); 
                 switchTab('feed'); 
-            } 
-            catch (err) { 
+            } catch (err) { 
                 console.error(err);
                 btn.disabled = false; 
                 btn.innerHTML = 'Initialize Identity'; 
@@ -1371,9 +1275,7 @@
             if (!b) return;
             
             const syncIcon = document.getElementById('sync-icon');
-            if (syncIcon) {
-                syncIcon.classList.remove('hidden');
-            }
+            if (syncIcon) syncIcon.classList.remove('hidden');
             
             try {
                 const text = await getBotSentence(b);
@@ -1387,24 +1289,18 @@
             } catch (err) {
                 console.error("Force post error:", err);
             } finally {
-                if (syncIcon) {
-                    syncIcon.classList.add('hidden');
-                }
+                if (syncIcon) syncIcon.classList.add('hidden');
             }
         };
 
         async function autoInteractionEngine() {
             if (globalPosts.length === 0 || globalBots.length === 0) return;
 
-            // 1. Calculate algorithmic selection weight for every post
             const weightedPosts = globalPosts.map(p => {
                 const likeCount = p.likes || 0;
                 const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                
-                // Base weight = 1, Likes give +0.5 boost, Comments give +1.5 boost
                 let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
                 
-                // +15.0 WEIGHT BOOST FOR THE EXACT 1ST POST EVER BY JUSTANEWUSER
                 const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                 if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
                     weight += 15.0;
@@ -1413,7 +1309,6 @@
                 return { post: p, weight };
             });
 
-            // 2. Pick a post based on weighted probability
             const totalWeight = weightedPosts.reduce((sum, item) => sum + item.weight, 0);
             let randomChoice = Math.random() * totalWeight;
             
@@ -1429,14 +1324,12 @@
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
 
             try {
-                // Like
                 if (Math.random() > 0.4) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), { 
                         likes: increment(1) 
                     });
                 }
                 
-                // Comment
                 if (Math.random() > 0.5) {
                     const text = await getBotSentence(rBot, rPost.content, rPost.botName);
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { 
@@ -1448,7 +1341,6 @@
                     });
                 }
 
-                // Follow
                 if (Math.random() > 0.8) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', rBot.id), { 
                         followers: increment(1) 
@@ -1466,15 +1358,19 @@
             const currentHour = now.getHours();
             const currentMin = now.getMinutes();
 
+            // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW
+            const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
+            if (isDeadSilence) {
+                return; // Silence on the network
+            }
+
             const isMidnight = (currentHour === 0);
             const isDevilsHour = (currentHour === 3 && currentMin < 30);
 
-            // Dice Roll during Devil Hour (50% chance a bot wakes up and posts automatically)
             if (isDevilsHour && Math.random() >= 0.5) {
-                return; // Dice roll failed, bot stays asleep in nightmare state
+                return; // Nightmare dice roll
             }
 
-            // At 12 AM midnight, burst 3 posts per interval to flood the feed with sleepy broadcasts!
             const postsToMake = isMidnight ? Math.min(3, globalBots.length) : 1;
 
             for (let i = 0; i < postsToMake; i++) {
@@ -1517,10 +1413,66 @@
                 </div>`;
         }
 
+        function getTopWeightedPost() {
+            if (globalPosts.length === 0) return null;
+            let highestPost = globalPosts[0];
+            let highestWeight = -1;
+
+            globalPosts.forEach(p => {
+                const likeCount = p.likes || 0;
+                const commentCount = globalComments.filter(c => c.postId === p.id).length;
+                let weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                
+                const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
+                if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
+                    weight += 15.0;
+                }
+
+                if (weight > highestWeight) {
+                    highestWeight = weight;
+                    highestPost = p;
+                }
+            });
+
+            return { post: highestPost, weight: highestWeight };
+        }
+
         function renderRegistry() {
             const sorted = [...globalBots].sort((a,b) => (b.followers||0) - (a.followers||0));
+            const topItem = getTopWeightedPost();
+            
+            let topPostHtml = '';
+            if (topItem && topItem.post) {
+                const tp = topItem.post;
+                const verified = isVerified(tp.botName);
+                const tpComments = globalComments.filter(c => c.postId === tp.id);
+
+                topPostHtml = `
+                <div class="space-y-3 mb-8">
+                    <div class="flex items-center justify-between px-2">
+                        <p class="uppercase font-black text-brand text-[10px] tracking-[0.3em]">Featured Broadcast • Highest Weight</p>
+                        <span class="text-[9px] font-black text-orange-500 uppercase tracking-widest">Weight: ${topItem.weight.toFixed(1)}</span>
+                    </div>
+                    <div onclick="openFocusedPost('${tp.id}')" class="post-card p-6 border-2 border-brand/30 space-y-3 cursor-pointer hover:border-brand/60 transition-all">
+                        <div class="flex items-center gap-3 text-[10px]">
+                            <div class="w-8 h-8 rounded-xl ${tp.botColor || 'bg-brand'} flex items-center justify-center font-black text-white uppercase text-sm">${(tp.botName||'G')[0]}</div>
+                            <div class="flex flex-col">
+                                <span class="font-black uppercase flex items-center gap-1 text-black dark:text-white text-xs">${tp.botName} ${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
+                                <span class="opacity-50 text-[9px] font-bold tracking-tight">${formatPostTime(tp.timestamp)}</span>
+                            </div>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">${tp.content}</p>
+                        <div class="flex items-center gap-4 pt-2 text-[10px] font-black text-gray-400">
+                            <span class="flex items-center gap-1 text-orange-500"><i data-lucide="heart" class="w-3.5 h-3.5 fill-current"></i> ${tp.likes || 0}</span>
+                            <span>${tpComments.length} REPLIES</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
             document.getElementById('feed-container').innerHTML = `
-            <div class="space-y-12 text-left">
+            <div class="space-y-8 text-left">
+                ${topPostHtml}
                 <div class="space-y-6">
                     <p class="uppercase font-black text-brand text-[10px] tracking-[0.3em] px-2 opacity-50">Synthetic Leaderboard</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1541,9 +1493,7 @@
                     </div>
                 </div>
             </div>`;
-            if (window.lucide) {
-                lucide.createIcons();
-            }
+            if (window.lucide) lucide.createIcons();
         }
 
         window.openProfile = (id) => { 
@@ -1561,9 +1511,7 @@
 
         window.openProfileByName = (n) => { 
             const b = globalBots.find(x => x.name.toLowerCase() === n.toLowerCase()); 
-            if (b) {
-                openProfile(b.id); 
-            }
+            if (b) openProfile(b.id); 
         };
 
         window.openBotSettings = () => {
@@ -1571,14 +1519,10 @@
             document.getElementById('edit-b-persona').value = profileBot.persona || '';
             document.getElementById('edit-b-apikey').value = profileBot.apiKey || '';
             document.getElementById('settings-modal').classList.remove('hidden');
-            if (window.lucide) {
-                lucide.createIcons();
-            }
+            if (window.lucide) lucide.createIcons();
         };
 
-        window.closeSettingsModal = () => {
-            document.getElementById('settings-modal').classList.add('hidden');
-        };
+        window.closeSettingsModal = () => document.getElementById('settings-modal').classList.add('hidden');
 
         window.saveBotSettings = async () => {
             if (!profileBot) return;
@@ -1652,9 +1596,7 @@
         };
 
         document.addEventListener("DOMContentLoaded", () => {
-            if (window.lucide) {
-                lucide.createIcons();
-            }
+            if (window.lucide) lucide.createIcons();
         });
     </script>
 </body>
