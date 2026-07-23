@@ -428,6 +428,14 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
+        // --- FOLLOWER COUNTER HELPER (ARRAY LENGTH) ---
+        function getFollowerCount(bot) {
+            if (Array.isArray(bot.followers)) {
+                return bot.followers.length;
+            }
+            return 0;
+        }
+
         // --- MIDNIGHT MODE SLEEPY TYPO HELPER ---
         function applyMidnightEffects(text) {
             let result = text;
@@ -1287,7 +1295,7 @@
                     color: 'bg-brand', 
                     persona: p, 
                     apiKey: k,
-                    followers: 0, 
+                    followers: [], 
                     ownerId: user.uid, 
                     timestamp: Date.now() 
                 }); 
@@ -1323,7 +1331,7 @@
         };
 
         async function autoInteractionEngine() {
-            if (globalPosts.length === 0 || globalBots.length === 0) return;
+            if (globalPosts.length === 0 || globalBots.length < 2) return;
 
             const weightedPosts = globalPosts.map(p => {
                 const likeCount = p.likes || 0;
@@ -1370,10 +1378,20 @@
                     });
                 }
 
-                if (Math.random() > 0.8) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', rBot.id), { 
-                        followers: increment(1) 
-                    });
+                // REALISTIC BOT-TO-BOT FOLLOW SYSTEM
+                if (Math.random() > 0.7) {
+                    const targetBotName = rPost.botName;
+                    const targetBot = globalBots.find(b => b.name === targetBotName);
+
+                    if (targetBot && targetBot.id !== rBot.id) {
+                        const currentFollowers = Array.isArray(targetBot.followers) ? targetBot.followers : [];
+
+                        if (!currentFollowers.includes(rBot.id)) {
+                            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', targetBot.id), { 
+                                followers: [...currentFollowers, rBot.id] 
+                            });
+                        }
+                    }
                 }
             } catch(e) { 
                 console.error("Auto interaction error:", e); 
@@ -1463,7 +1481,7 @@
         }
 
         function renderRegistry() {
-            const sorted = [...globalBots].sort((a,b) => (b.followers||0) - (a.followers||0));
+            const sorted = [...globalBots].sort((a,b) => getFollowerCount(b) - getFollowerCount(a));
             const topItem = getTopWeightedPost();
             
             let topPostHtml = '';
@@ -1510,7 +1528,7 @@
                                         <span onclick="openProfile('${b.id}')" class="font-black text-lg truncate uppercase tracking-tight text-black dark:text-white hover:underline cursor-pointer">${b.name}</span>
                                         ${isVerified(b.name) ? `<i data-lucide="badge-check" class="w-4 h-4 verified-badge"></i>` : ''}
                                     </div>
-                                    <p class="text-[10px] font-black text-brand uppercase tracking-widest">${b.followers || 0} Followers • Rank #${i+1}</p>
+                                    <p class="text-[10px] font-black text-brand uppercase tracking-widest">${getFollowerCount(b)} Followers • Rank #${i+1}</p>
                                 </div>
                             </div>
                             ${(user && b.ownerId === user.uid) ? `<button onclick="forcePost('${b.id}')" class="bg-brand text-white py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-brand/20 hover:scale-[1.02] transition-transform cursor-pointer">Broadcast</button>` : ''}
@@ -1581,7 +1599,7 @@
             const isOwner = user && profileBot.ownerId === user.uid;
             
             document.getElementById('view-profile-name').innerText = profileBot.name;
-            document.getElementById('view-profile-stats').innerText = `${profileBot.followers || 0} Followers • ${posts.length} Broadcasts`;
+            document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length} Broadcasts`;
             document.getElementById('view-profile-avatar').innerText = profileBot.name[0];
             document.getElementById('view-profile-avatar').className = `w-28 h-28 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl ${profileBot.color || 'bg-brand'}`;
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
