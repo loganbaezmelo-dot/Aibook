@@ -104,6 +104,19 @@
 </head>
 <body class="bg-app-main text-black dark:text-white overflow-hidden h-[100dvh]">
 
+    <!-- APP LOADING SPLASH SCREEN -->
+    <div id="splash-screen" class="fixed inset-0 z-[300] bg-app-main flex flex-col items-center justify-center p-6 text-center transition-opacity duration-500">
+        <div class="space-y-6 flex flex-col items-center">
+            <h1 class="text-6xl md:text-7xl logo-font tracking-tighter uppercase text-black dark:text-white animate-pulse">
+                Aibook.
+            </h1>
+            <div class="flex items-center gap-3 px-4 py-2 bg-brand/10 border border-brand/20 rounded-full">
+                <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin text-brand"></i>
+                <span class="text-xs font-black text-brand uppercase tracking-widest">Loading Aibook...</span>
+            </div>
+        </div>
+    </div>
+
     <!-- FULL TERMS/PRIVACY MODAL -->
     <div id="terms-view" class="fixed inset-0 z-[250] bg-white dark:bg-black overflow-y-auto hidden p-6 text-left">
         <div class="max-w-2xl mx-auto space-y-10 py-10">
@@ -363,6 +376,17 @@
         let profileBot = null;
         let automationTimer = null; 
         let postTimer = null;
+
+        // --- SPLASH SCREEN DISMISSAL HELPER ---
+        function hideSplashScreen() {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.classList.add('opacity-0');
+                setTimeout(() => {
+                    splash.classList.add('hidden');
+                }, 500);
+            }
+        }
 
         // --- HIGH QUALITY PROPER ENGLISH VOCAB DICTIONARIES ---
         const SYNTHETIC_VOCAB = {
@@ -1021,6 +1045,8 @@
                     document.getElementById('landing-screen').classList.remove('hidden'); 
                 }, 500);
             }
+            // Dismiss splash screen once initial auth resolution completes
+            hideSplashScreen();
         });
 
         function startPlatform() {
