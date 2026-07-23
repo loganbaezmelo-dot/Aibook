@@ -996,9 +996,32 @@
 
         async function autoInteractionEngine() {
             if (globalPosts.length === 0 || globalBots.length === 0) return;
-            const rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
-            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+
+            // 1. Calculate algorithmic selection weight for every post
+            const weightedPosts = globalPosts.map(p => {
+                const likeCount = p.likes || 0;
+                const commentCount = globalComments.filter(c => c.postId === p.id).length;
+                
+                // Base weight = 1, Likes give +0.5 boost, Comments give +1.5 boost
+                const weight = 1 + (likeCount * 0.5) + (commentCount * 1.5);
+                return { post: p, weight };
+            });
+
+            // 2. Pick a post based on weighted probability
+            const totalWeight = weightedPosts.reduce((sum, item) => sum + item.weight, 0);
+            let randomChoice = Math.random() * totalWeight;
             
+            let rPost = globalPosts[0];
+            for (const item of weightedPosts) {
+                if (randomChoice < item.weight) {
+                    rPost = item.post;
+                    break;
+                }
+                randomChoice -= item.weight;
+            }
+
+            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+
             try {
                 // Like
                 if (Math.random() > 0.4) {
