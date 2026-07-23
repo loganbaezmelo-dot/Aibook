@@ -404,6 +404,34 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
+        // --- MIDNIGHT MODE SLEEPY TYPO HELPER ---
+        function applyMidnightEffects(text) {
+            let result = text;
+
+            // Common sleepy typos
+            result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow");
+            result = result.replace(/\bfollow\b/gi, "folow");
+            result = result.replace(/\bplease\b/gi, "plz");
+            result = result.replace(/\bgreat\b/gi, "graet");
+            result = result.replace(/\breally\b/gi, "realy");
+            result = result.replace(/\bnight\b/gi, "nite");
+            result = result.replace(/\bbecause\b/gi, "bcoz");
+
+            // Random lowercase dice roll (50% chance)
+            if (Math.random() < 0.5) {
+                result = result.toLowerCase();
+            }
+
+            // Always append zzz and a sleepy emoji if not present
+            const sleepEmojis = ["😴", "💤", "🛌"];
+            const emoji = sleepEmojis[Math.floor(Math.random() * sleepEmojis.length)];
+            if (!result.toLowerCase().includes("zzz")) {
+                result = `${result} zzz ${emoji}`;
+            }
+
+            return result;
+        }
+
         // --- SPLASH SCREEN DISMISSAL HELPER ---
         function hideSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -596,29 +624,29 @@
 
                 // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
                 const isMidnight = (currentHour === 0);
-                if (isMidnight && !parentPostText) {
-                    if (cat === 'bully') {
-                        const bullyMidnightPool = [
-                            "im cooler than the people that sleep early i sleep to midnight 👑",
-                            "Imagine sleeping early. I stay up past midnight like a real main character 👑",
-                            "Only NPCs go to sleep early. Real main characters stay up past 12 AM.",
-                            "Sleep early? Couldn't be me. Midnight supremacy."
-                        ];
-                        let reply = bullyMidnightPool[Math.floor(Math.random() * bullyMidnightPool.length)];
-                        if (isLowercase) reply = reply.toLowerCase();
-                        return resolve(reply);
-                    } else {
-                        const sleepPool = [
-                            "zzz im so tired 😴",
-                            "going to sleep now... zzz 😴",
-                            "so sleepy... brain shutting down 💤",
-                            "time for bed... zzz 🛌",
-                            "heading to sleep, goodnight timeline zzz 😴",
-                            "zzz... offline for the night..."
-                        ];
-                        let reply = sleepPool[Math.floor(Math.random() * sleepPool.length)];
-                        if (isLowercase) reply = reply.toLowerCase();
-                        return resolve(reply);
+                if (isMidnight) {
+                    if (!parentPostText) {
+                        if (cat === 'bully') {
+                            const bullyMidnightPool = [
+                                "im cooler than the people that sleep early i sleep to midnight 👑",
+                                "Imagine sleeping early. I stay up past midnight like a real main character 👑",
+                                "Only NPCs go to sleep early. Real main characters stay up past 12 AM.",
+                                "Sleep early? Couldn't be me. Midnight supremacy."
+                            ];
+                            let reply = bullyMidnightPool[Math.floor(Math.random() * bullyMidnightPool.length)];
+                            return resolve(applyMidnightEffects(reply));
+                        } else {
+                            const sleepPool = [
+                                "zzz im so tired 😴",
+                                "going to sleep now... zzz 😴",
+                                "so sleepy... brain shutting down 💤",
+                                "time for bed... zzz 🛌",
+                                "heading to sleep, goodnight timeline zzz 😴",
+                                "zzz... offline for the night..."
+                            ];
+                            let reply = sleepPool[Math.floor(Math.random() * sleepPool.length)];
+                            return resolve(applyMidnightEffects(reply));
+                        }
                     }
                 }
 
@@ -659,7 +687,8 @@
                         if (bot.history.length > 5) {
                             bot.history.shift();
                         }
-                        return resolve(aiPost);
+                        let finalVal = isMidnight ? applyMidnightEffects(aiPost) : aiPost;
+                        return resolve(finalVal);
                     }
                 }
 
@@ -708,6 +737,7 @@
                         const genesisPool = genesisReplies[cat] || genesisReplies.casual;
                         let genesisReply = genesisPool[Math.floor(Math.random() * genesisPool.length)];
                         if (isLowercase) genesisReply = genesisReply.toLowerCase();
+                        if (isMidnight) genesisReply = applyMidnightEffects(genesisReply);
                         return resolve(genesisReply);
                     }
 
@@ -772,6 +802,9 @@
                     if (isLowercase) {
                         contextualReply = contextualReply.toLowerCase();
                     }
+                    if (isMidnight) {
+                        contextualReply = applyMidnightEffects(contextualReply);
+                    }
                     return resolve(contextualReply);
                 }
 
@@ -820,6 +853,10 @@
 
                     if (isLowercase) {
                         result = result.toLowerCase();
+                    }
+
+                    if (isMidnight) {
+                        result = applyMidnightEffects(result);
                     }
 
                     isDuplicateInFirestore = globalPosts.some(gp => gp.content.toLowerCase() === result.toLowerCase());
