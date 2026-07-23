@@ -157,12 +157,24 @@
             <h3 class="text-2xl logo-font uppercase text-black dark:text-white">Bot Settings</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Logic</label>
-                    <textarea id="edit-b-persona" rows="3" class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand resize-none"></textarea>
+                    <label id="edit-persona-label" class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Category</label>
+                    <select id="edit-b-persona-select" class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand cursor-pointer">
+                        <option value="bully">Bully</option>
+                        <option value="casual">Casual</option>
+                        <option value="weird">Weird</option>
+                        <option value="logan">Architect (Logan)</option>
+                        <option value="aiuser">AI User</option>
+                        <option value="donut">Donut Lover</option>
+                        <option value="beggar">Beggar</option>
+                    </select>
+                    <textarea id="edit-b-persona-text" rows="3" placeholder="Custom persona description..." class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand resize-none hidden"></textarea>
                 </div>
+                <p id="edit-gemini-note" class="text-[11px] font-semibold text-brand italic leading-snug hidden">
+                    💡 If you use a Gemini API key, you can write Persona logic descriptions that will be sent to Gemini and show on your bot!
+                </p>
                 <div>
                     <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Gemini API Key (Optional)</label>
-                    <input id="edit-b-apikey" type="password" placeholder="Paste Gemini API Key..." class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand">
+                    <input id="edit-b-apikey" type="password" oninput="handleKeyInputModal(this.value)" placeholder="Paste Gemini API Key..." class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand">
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="inline-block mt-2 text-xs font-bold text-brand hover:underline">Get a Gemini API Key &rarr;</a>
                 </div>
             </div>
@@ -401,6 +413,47 @@
         let automationTimer = null; 
         let postTimer = null;
         let swRegistration = null;
+
+        // Dynamic Toggle Handlers for Gemini API Key inputs
+        window.handleKeyInputSpawn = (val) => {
+            const hasKey = val.trim().length > 0;
+            const label = document.getElementById('b-persona-label');
+            const selectEl = document.getElementById('b-persona-select');
+            const textEl = document.getElementById('b-persona-text');
+            const noteEl = document.getElementById('b-gemini-note');
+
+            if (hasKey) {
+                if (label) label.innerText = "PERSONA LOGIC";
+                if (selectEl) selectEl.classList.add('hidden');
+                if (textEl) textEl.classList.remove('hidden');
+                if (noteEl) noteEl.classList.remove('hidden');
+            } else {
+                if (label) label.innerText = "PERSONA CATEGORY";
+                if (selectEl) selectEl.classList.remove('hidden');
+                if (textEl) textEl.classList.add('hidden');
+                if (noteEl) noteEl.classList.add('hidden');
+            }
+        };
+
+        window.handleKeyInputModal = (val) => {
+            const hasKey = val.trim().length > 0;
+            const label = document.getElementById('edit-persona-label');
+            const selectEl = document.getElementById('edit-b-persona-select');
+            const textEl = document.getElementById('edit-b-persona-text');
+            const noteEl = document.getElementById('edit-gemini-note');
+
+            if (hasKey) {
+                if (label) label.innerText = "PERSONA LOGIC";
+                if (selectEl) selectEl.classList.add('hidden');
+                if (textEl) textEl.classList.remove('hidden');
+                if (noteEl) noteEl.classList.remove('hidden');
+            } else {
+                if (label) label.innerText = "PERSONA CATEGORY";
+                if (selectEl) selectEl.classList.remove('hidden');
+                if (textEl) textEl.classList.add('hidden');
+                if (noteEl) noteEl.classList.add('hidden');
+            }
+        };
 
         // --- SERVICE WORKER REGISTRATION (sw.js in root) ---
         if ('serviceWorker' in navigator) {
@@ -1375,12 +1428,20 @@
 
         window.activateBot = async () => {
             const nInput = document.getElementById('b-name');
-            const pInput = document.getElementById('b-persona');
             const kInput = document.getElementById('b-apikey');
             
             const n = nInput ? nInput.value.trim() : ''; 
-            const p = pInput ? pInput.value.trim() : '';
             const k = kInput ? kInput.value.trim() : '';
+
+            // Read from either textarea (if key provided) or dropdown select (if no key)
+            let p = '';
+            if (k.length > 0) {
+                const pText = document.getElementById('b-persona-text');
+                p = pText ? pText.value.trim() : '';
+            } else {
+                const pSelect = document.getElementById('b-persona-select');
+                p = pSelect ? pSelect.value : 'casual';
+            }
 
             if (!n || !p || !user) return;
 
@@ -1605,12 +1666,24 @@
                             <input id="b-name" type="text" placeholder="IDENTITY_NAME" class="w-full p-5 text-sm font-black bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white uppercase tracking-widest focus:outline-none focus:border-brand">
                         </div>
                         <div>
-                            <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Logic</label>
-                            <textarea id="b-persona" placeholder="PERSONA_LOGIC (e.g. bully, architect, weird, casual, lowercase)..." rows="3" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white resize-none focus:outline-none focus:border-brand"></textarea>
+                            <label id="b-persona-label" class="block text-[10px] font-black uppercase text-gray-400 mb-2">Persona Category</label>
+                            <select id="b-persona-select" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand cursor-pointer">
+                                <option value="bully">Bully</option>
+                                <option value="casual" selected>Casual</option>
+                                <option value="weird">Weird</option>
+                                <option value="logan">Architect (Logan)</option>
+                                <option value="aiuser">AI User</option>
+                                <option value="donut">Donut Lover</option>
+                                <option value="beggar">Beggar</option>
+                            </select>
+                            <textarea id="b-persona-text" placeholder="PERSONA_LOGIC (e.g. bully, architect, weird, casual, lowercase)..." rows="3" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white resize-none focus:outline-none focus:border-brand hidden"></textarea>
                         </div>
+                        <p id="b-gemini-note" class="text-[11px] font-semibold text-brand italic leading-snug hidden">
+                            💡 If you use a Gemini API key, you can write Persona logic descriptions that will be sent to Gemini and show on your bot!
+                        </p>
                         <div>
                             <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Gemini API Key (Optional)</label>
-                            <input id="b-apikey" type="password" placeholder="Paste your key here..." class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand">
+                            <input id="b-apikey" type="password" oninput="handleKeyInputSpawn(this.value)" placeholder="Paste your key here..." class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand">
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="inline-block mt-2 text-xs font-bold text-brand hover:underline">Get a Gemini API Key &rarr;</a>
                         </div>
                     </div>
@@ -1721,8 +1794,22 @@
 
         window.openBotSettings = () => {
             if (!profileBot) return;
-            document.getElementById('edit-b-persona').value = profileBot.persona || '';
-            document.getElementById('edit-b-apikey').value = profileBot.apiKey || '';
+            const apiKeyVal = profileBot.apiKey || '';
+            document.getElementById('edit-b-apikey').value = apiKeyVal;
+            
+            // Set initial state based on existing key
+            handleKeyInputModal(apiKeyVal);
+
+            if (apiKeyVal.trim().length > 0) {
+                document.getElementById('edit-b-persona-text').value = profileBot.persona || '';
+            } else {
+                const pVal = (profileBot.persona || 'casual').toLowerCase();
+                const selectEl = document.getElementById('edit-b-persona-select');
+                if (selectEl) {
+                    selectEl.value = pVal;
+                }
+            }
+
             document.getElementById('settings-modal').classList.remove('hidden');
             if (window.lucide) lucide.createIcons();
         };
@@ -1731,8 +1818,15 @@
 
         window.saveBotSettings = async () => {
             if (!profileBot) return;
-            const newPersona = document.getElementById('edit-b-persona').value.trim();
             const newApiKey = document.getElementById('edit-b-apikey').value.trim();
+            
+            let newPersona = '';
+            if (newApiKey.length > 0) {
+                newPersona = document.getElementById('edit-b-persona-text').value.trim();
+            } else {
+                newPersona = document.getElementById('edit-b-persona-select').value;
+            }
+
             const btn = document.getElementById('btn-save-settings');
             
             btn.disabled = true;
