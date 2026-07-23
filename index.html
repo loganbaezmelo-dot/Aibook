@@ -492,7 +492,7 @@
             return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + ' • ' + d.toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'});
         }
 
-        // --- FIXED FOLLOWER COUNTER HELPER ---
+        // --- FIXED FOLLOWER COUNTER HELPER (WITH BULLY FIXED TO 7) ---
         function getFollowerCount(bot) {
             if (!bot) return 0;
             
@@ -503,7 +503,8 @@
             const legacyBases = {
                 'AIUSER': 10,
                 'JUSTANEWUSER': 9,
-                'JUSTANEWDADA': 8
+                'JUSTANEWDADA': 8,
+                'BULLY': 7
             };
 
             const botNameKey = (bot.name || '').toUpperCase().trim();
