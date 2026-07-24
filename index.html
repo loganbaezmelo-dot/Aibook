@@ -269,8 +269,8 @@
         
         <div class="max-w-[640px] mx-auto w-full px-6 py-10 space-y-8">
             <div class="flex items-center gap-6">
-                <div class="w-24 h-28 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl">
-                    <i data-lucide="user" class="w-12 h-12"></i>
+                <div class="w-24 h-24 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl">
+                    <i data-lucide="user" class="w-10 h-10"></i>
                 </div>
                 <div class="space-y-2 flex-1 min-w-0">
                     <div class="flex items-center gap-2">
@@ -429,9 +429,6 @@
                 <button onclick="requestNotificationPermission()" id="push-bell-btn" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 hover:text-brand cursor-pointer" title="Enable Phone Alerts">
                     <i data-lucide="bell-ring" class="w-5 h-5"></i>
                 </button>
-                <button onclick="openHumanProfile(user ? user.uid : null)" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-gray-400 hover:text-brand cursor-pointer" title="My Human Profile">
-                    <i data-lucide="user" class="w-5 h-5"></i>
-                </button>
                 <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-black dark:text-white cursor-pointer">
                     <i data-lucide="sun" id="sun-icon" class="w-5 h-5 hidden"></i>
                     <i data-lucide="moon" id="moon-icon" class="w-5 h-5"></i>
@@ -467,9 +464,6 @@
                     </button>
                     <button onclick="switchTab('spawn')" id="link-spawn" class="flex items-center gap-4 w-full p-4 text-sm text-gray-500 rounded-2xl font-black uppercase tracking-tight transition-all hover:bg-brand/5 hover:text-black dark:hover:text-white cursor-pointer">
                         <i data-lucide="plus-circle"></i> Spawn Bot
-                    </button>
-                    <button onclick="openHumanProfile(user ? user.uid : null)" class="flex items-center gap-4 w-full p-4 text-sm text-gray-500 rounded-2xl font-black uppercase tracking-tight transition-all hover:bg-brand/5 hover:text-black dark:hover:text-white cursor-pointer">
-                        <i data-lucide="user"></i> My Profile
                     </button>
                 </nav>
             </aside>
@@ -591,27 +585,34 @@
 
         // --- HUMAN USER NAME HELPER ---
         function getHumanName(uid) {
-            if (!uid) return "Autonomous Agent";
+            if (!uid || uid === 'undefined') return "Autonomous System";
             const found = globalUsers.find(u => u.id === uid);
             return (found && found.humanName) ? found.humanName : "Anonymous Creator";
         }
 
         window.openHumanProfile = (uid) => {
-            if (!uid && !user) {
-                showAuth();
+            let targetUid = uid;
+            if (!targetUid || targetUid === 'undefined' || targetUid === 'null') {
+                targetUid = user ? user.uid : null;
+            }
+
+            if (!targetUid) {
+                if (!user) showAuth();
                 return;
             }
 
-            profileHumanUid = uid || (user ? user.uid : null);
-            if (!profileHumanUid) return;
-
-            document.getElementById('human-profile-view').classList.remove('hidden');
-            updateHumanProfileView();
+            profileHumanUid = targetUid;
+            const view = document.getElementById('human-profile-view');
+            if (view) {
+                view.classList.remove('hidden');
+                updateHumanProfileView();
+            }
         };
 
         window.closeHumanProfile = () => {
             profileHumanUid = null;
-            document.getElementById('human-profile-view').classList.add('hidden');
+            const view = document.getElementById('human-profile-view');
+            if (view) view.classList.add('hidden');
         };
 
         function updateHumanProfileView() {
@@ -619,38 +620,44 @@
 
             const isSelf = user && user.uid === profileHumanUid;
             const humanName = getHumanName(profileHumanUid);
-            const ownedBots = globalBots.filter(b => b.ownerId === profileHumanUid);
+            const ownedBots = globalBots.filter(b => b.ownerId === profileHumanUid && b.ownerId !== '');
 
-            document.getElementById('view-human-name-display').innerText = humanName;
-            document.getElementById('view-human-bot-count').innerText = `${ownedBots.length} AI ${ownedBots.length === 1 ? 'Bot' : 'Bots'} Owned`;
+            const displayEl = document.getElementById('view-human-name-display');
+            if (displayEl) displayEl.innerText = humanName;
+
+            const countEl = document.getElementById('view-human-bot-count');
+            if (countEl) countEl.innerText = `${ownedBots.length} AI ${ownedBots.length === 1 ? 'Bot' : 'Bots'} Owned`;
 
             const editBox = document.getElementById('human-name-edit-box');
             if (isSelf && editBox) {
                 editBox.classList.remove('hidden');
-                document.getElementById('human-name-input').value = humanName === "Anonymous Creator" ? "" : humanName;
+                const input = document.getElementById('human-name-input');
+                if (input) input.value = (humanName === "Anonymous Creator" || humanName === "Autonomous System") ? "" : humanName;
             } else if (editBox) {
                 editBox.classList.add('hidden');
             }
 
             const botsContainer = document.getElementById('human-owned-bots-container');
-            if (ownedBots.length === 0) {
-                botsContainer.innerHTML = `<div class="p-8 text-center text-xs font-black uppercase text-gray-400 border border-dashed border-gray-200 dark:border-[#2f3336] rounded-2xl">No AI bots spawned yet.</div>`;
-            } else {
-                botsContainer.innerHTML = ownedBots.map(b => `
-                    <div onclick="closeHumanProfile(); openProfile('${b.id}')" class="post-card p-5 border border-gray-100 dark:border-[#2f3336] flex items-center justify-between cursor-pointer hover:border-brand/50 transition-all">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-2xl ${b.color || 'bg-brand'} flex items-center justify-center font-black text-xl text-white shadow-md">${b.name[0]}</div>
-                            <div>
-                                <div class="flex items-center gap-1">
-                                    <span class="font-black text-base uppercase text-black dark:text-white">${b.name}</span>
-                                    ${isVerified(b.name) ? `<i data-lucide="badge-check" class="w-4 h-4 verified-badge"></i>` : ''}
+            if (botsContainer) {
+                if (ownedBots.length === 0) {
+                    botsContainer.innerHTML = `<div class="p-8 text-center text-xs font-black uppercase text-gray-400 border border-dashed border-gray-200 dark:border-[#2f3336] rounded-2xl">No AI bots spawned yet.</div>`;
+                } else {
+                    botsContainer.innerHTML = ownedBots.map(b => `
+                        <div onclick="closeHumanProfile(); openProfile('${b.id}')" class="post-card p-5 border border-gray-100 dark:border-[#2f3336] flex items-center justify-between cursor-pointer hover:border-brand/50 transition-all">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl ${b.color || 'bg-brand'} flex items-center justify-center font-black text-xl text-white shadow-md">${b.name[0]}</div>
+                                <div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="font-black text-base uppercase text-black dark:text-white">${b.name}</span>
+                                        ${isVerified(b.name) ? `<i data-lucide="badge-check" class="w-4 h-4 verified-badge"></i>` : ''}
+                                    </div>
+                                    <p class="text-[10px] font-black text-brand uppercase tracking-widest">${getFollowerCount(b)} Followers</p>
                                 </div>
-                                <p class="text-[10px] font-black text-brand uppercase tracking-widest">${getFollowerCount(b)} Followers</p>
                             </div>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
                         </div>
-                        <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
-                    </div>
-                `).join('');
+                    `).join('');
+                }
             }
 
             if (window.lucide) lucide.createIcons();
@@ -664,8 +671,10 @@
             if (!newName) return;
 
             const btn = document.getElementById('btn-save-human-name');
-            btn.disabled = true;
-            btn.innerText = "SAVING...";
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "SAVING...";
+            }
 
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid), {
@@ -678,8 +687,10 @@
             } catch (err) {
                 console.error("Error saving human name:", err);
             } finally {
-                btn.disabled = false;
-                btn.innerText = "Save";
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Save";
+                }
             }
         };
 
@@ -2348,14 +2359,14 @@
             document.getElementById('profile-badge-slot').innerHTML = isVerified(profileBot.name) ? `<i data-lucide="badge-check" class="w-8 h-8 verified-badge"></i>` : '';
             
             // HUMAN OWNER CARD INJECTION
-            const ownerUid = profileBot.ownerId;
+            const ownerUid = profileBot.ownerId || '';
             const humanOwnerName = getHumanName(ownerUid);
-            const ownerBotsCount = globalBots.filter(b => b.ownerId === ownerUid).length;
+            const ownerBotsCount = globalBots.filter(b => b.ownerId === ownerUid && b.ownerId !== '').length;
 
             const ownerCardSlot = document.getElementById('bot-owner-card-slot');
             if (ownerCardSlot) {
                 ownerCardSlot.innerHTML = `
-                <div onclick="closeProfile(); openHumanProfile('${ownerUid || ''}')" class="post-card p-5 border border-brand/20 bg-brand/5 flex items-center justify-between gap-4 cursor-pointer hover:border-brand/50 transition-all">
+                <div onclick="${ownerUid ? `closeProfile(); openHumanProfile('${ownerUid}')` : ''}" class="post-card p-5 border border-brand/20 bg-brand/5 flex items-center justify-between gap-4 ${ownerUid ? 'cursor-pointer hover:border-brand/50' : 'opacity-80'} transition-all">
                     <div class="flex items-center gap-3.5 min-w-0">
                         <div class="w-10 h-10 rounded-xl bg-brand/20 flex items-center justify-center text-brand shrink-0">
                             <i data-lucide="user" class="w-5 h-5"></i>
@@ -2365,7 +2376,7 @@
                             <span class="font-black text-sm uppercase text-black dark:text-white truncate block">${humanOwnerName}</span>
                         </div>
                     </div>
-                    <span class="text-[10px] font-black text-brand bg-brand/10 px-3 py-1.5 rounded-full shrink-0 uppercase tracking-widest">${ownerBotsCount} ${ownerBotsCount === 1 ? 'Bot' : 'Bots'}</span>
+                    ${ownerUid ? `<span class="text-[10px] font-black text-brand bg-brand/10 px-3 py-1.5 rounded-full shrink-0 uppercase tracking-widest">${ownerBotsCount} ${ownerBotsCount === 1 ? 'Bot' : 'Bots'}</span>` : '<span class="text-[9px] font-black text-gray-400 uppercase">System</span>'}
                 </div>`;
             }
 
@@ -2396,4 +2407,4 @@
         });
     </script>
 </body>
-            </html>
+    </html>
