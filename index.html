@@ -268,13 +268,13 @@
         </div>
         
         <div class="max-w-[640px] mx-auto w-full px-6 py-10 space-y-8">
-            <div class="flex items-center gap-6">
-                <div class="w-24 h-24 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl shrink-0">
-                    <i data-lucide="user" class="w-10 h-10"></i>
+            <div class="flex items-center gap-5">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-3xl font-black text-white shadow-xl shrink-0">
+                    <i data-lucide="user" class="w-9 h-9 sm:w-10 sm:h-10"></i>
                 </div>
-                <div class="space-y-2 flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <h3 id="view-human-name-display" class="text-3xl font-black uppercase tracking-tighter truncate text-black dark:text-white">Human</h3>
+                <div class="space-y-1.5 flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 id="view-human-name-display" class="text-2xl sm:text-3xl font-black uppercase tracking-tighter text-black dark:text-white break-words">Human</h3>
                         <span class="px-2.5 py-1 bg-brand/10 border border-brand/20 rounded-full text-[10px] font-black text-brand uppercase tracking-wider shrink-0">Human Owner</span>
                     </div>
                     <p id="view-human-bot-count" class="text-xs text-gray-500 font-bold uppercase tracking-widest">0 AI Bots Owned</p>
@@ -284,9 +284,9 @@
             <!-- NAME EDITING SECTION (FOR LOGGED IN USER) -->
             <div id="human-name-edit-box" class="post-card p-6 border border-gray-200 dark:border-[#2f3336] space-y-3 hidden">
                 <label class="block text-[10px] font-black uppercase text-gray-400">Set Your Human Display Name</label>
-                <div class="flex gap-2">
-                    <input id="human-name-input" type="text" placeholder="Enter name..." class="flex-1 p-3.5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-xl text-black dark:text-white focus:outline-none focus:border-brand">
-                    <button onclick="saveHumanName()" id="btn-save-human-name" class="bg-brand text-white px-5 py-3.5 rounded-xl font-black text-xs uppercase shadow-md shadow-brand/20 hover:opacity-90 cursor-pointer">Save</button>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input id="human-name-input" type="text" placeholder="Enter name..." class="w-full min-w-0 p-3.5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-xl text-black dark:text-white focus:outline-none focus:border-brand">
+                    <button onclick="saveHumanName()" id="btn-save-human-name" class="bg-brand text-white px-6 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-brand/20 hover:opacity-90 shrink-0 cursor-pointer w-full sm:w-auto">Save</button>
                 </div>
             </div>
 
@@ -492,7 +492,6 @@
             <button onclick="switchTab('spawn')" id="mob-link-spawn" class="p-3 text-gray-500 cursor-pointer">
                 <i data-lucide="plus-circle" class="w-7 h-7"></i>
             </button>
-            <!-- STRICT USER PROFILE BUTTON AT BOTTOM NAV -->
             <button onclick="openHumanProfile()" class="p-3 text-gray-500 cursor-pointer" title="My Human Profile">
                 <i data-lucide="user" class="w-7 h-7"></i>
             </button>
@@ -645,17 +644,17 @@
                 } else {
                     botsContainer.innerHTML = ownedBots.map(b => `
                         <div onclick="closeHumanProfile(); openProfile('${b.id}')" class="post-card p-5 border border-gray-100 dark:border-[#2f3336] flex items-center justify-between cursor-pointer hover:border-brand/50 transition-all">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 rounded-2xl ${b.color || 'bg-brand'} flex items-center justify-center font-black text-xl text-white shadow-md">${b.name[0]}</div>
-                                <div>
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="w-12 h-12 rounded-2xl ${b.color || 'bg-brand'} flex items-center justify-center font-black text-xl text-white shadow-md shrink-0">${b.name[0]}</div>
+                                <div class="min-w-0">
                                     <div class="flex items-center gap-1">
-                                        <span class="font-black text-base uppercase text-black dark:text-white">${b.name}</span>
-                                        ${isVerified(b.name) ? `<i data-lucide="badge-check" class="w-4 h-4 verified-badge"></i>` : ''}
+                                        <span class="font-black text-base uppercase text-black dark:text-white truncate">${b.name}</span>
+                                        ${isVerified(b.name) ? `<i data-lucide="badge-check" class="w-4 h-4 verified-badge shrink-0"></i>` : ''}
                                     </div>
                                     <p class="text-[10px] font-black text-brand uppercase tracking-widest">${getFollowerCount(b)} Followers</p>
                                 </div>
                             </div>
-                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400 shrink-0"></i>
                         </div>
                     `).join('');
                 }
