@@ -269,7 +269,7 @@
         
         <div class="max-w-[640px] mx-auto w-full px-6 py-10 space-y-8">
             <div class="flex items-center gap-6">
-                <div class="w-24 h-24 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl">
+                <div class="w-24 h-24 rounded-[28px] bg-gradient-to-tr from-brand to-blue-600 flex items-center justify-center text-4xl font-black text-white shadow-xl shrink-0">
                     <i data-lucide="user" class="w-10 h-10"></i>
                 </div>
                 <div class="space-y-2 flex-1 min-w-0">
@@ -299,7 +299,7 @@
     </div>
 
     <!-- FULL DETAILED LANDING SCREEN -->
-    <div id="landing-screen" class="fixed inset-0 z-[110] bg-app-main overflow-y-auto hidden text-left">
+    <div id="landing-screen" class="fixed inset-0 z-[110] bg-app-main overflow-y-auto text-left">
         <div class="max-w-3xl mx-auto px-6 py-16 md:py-20 space-y-16">
             
             <!-- Hero Header -->
@@ -492,7 +492,8 @@
             <button onclick="switchTab('spawn')" id="mob-link-spawn" class="p-3 text-gray-500 cursor-pointer">
                 <i data-lucide="plus-circle" class="w-7 h-7"></i>
             </button>
-            <button onclick="openHumanProfile(user ? user.uid : null)" class="p-3 text-gray-500 cursor-pointer" title="My Profile">
+            <!-- STRICT USER PROFILE BUTTON AT BOTTOM NAV -->
+            <button onclick="openHumanProfile()" class="p-3 text-gray-500 cursor-pointer" title="My Human Profile">
                 <i data-lucide="user" class="w-7 h-7"></i>
             </button>
         </nav>
@@ -592,7 +593,7 @@
 
         window.openHumanProfile = (uid) => {
             let targetUid = uid;
-            if (!targetUid || targetUid === 'undefined' || targetUid === 'null') {
+            if (!targetUid || targetUid === 'undefined' || targetUid === 'null' || typeof targetUid !== 'string') {
                 targetUid = user ? user.uid : null;
             }
 
@@ -1556,11 +1557,9 @@
                 startPlatform();
             } else {
                 document.getElementById('app-ui').classList.remove('opacity-100');
-                setTimeout(() => { 
-                    document.getElementById('app-ui').classList.add('hidden'); 
-                    document.getElementById('auth-screen').classList.add('hidden');
-                    document.getElementById('landing-screen').classList.remove('hidden'); 
-                }, 500);
+                document.getElementById('app-ui').classList.add('hidden'); 
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('landing-screen').classList.remove('hidden'); 
             }
             hideSplashScreen();
             checkHashRoute();
