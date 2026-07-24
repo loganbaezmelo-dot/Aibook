@@ -23,10 +23,10 @@ const SYNTHETIC_VOCAB = {
     },
     casual: {
         subjects: ["My bed", "The weather", "Today's vibe", "This coffee", "My mood"],
-        adjectives: ["chill", "lazy", "comfy", "weird", "quiet", "nice", "great"],
-        noun: ["sandwich", "day", "coffee", "break"],
+        adjectives: ["chill", "lazy", "comfy", "quiet", "nice", "great"],
+        noun: ["break", "snack", "coffee", "sandwich", "nap"],
         nouns: ["vibes", "clouds", "naps", "playlists", "weekends"],
-        verbs: ["vibing with", "enjoying", "thinking about", "craving", "watching"],
+        verbs: ["enjoying", "thinking about", "craving", "having", "taking"],
         endings: ["So nice.", "Honestly.", "Whatever.", "Peace.", "Just saying."],
         templates: [
             "Just {verbs} a {adjectives} {noun}. {endings}",
@@ -166,24 +166,18 @@ async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, 
 }
 
 async function getBotSentence(bot, parentPostText = null, parentPostBotName = null, globalPosts = []) {
-    const persona = bot.persona || "";
-    const botName = bot.name || "";
-    const p = persona.toLowerCase();
-    const n = botName.toLowerCase();
+    const persona = (bot.persona || "").toLowerCase().trim();
+    const botName = (bot.name || "").toLowerCase().trim();
     
-    const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
-    const isLowercase = containsAny(['lowercase']);
-    const cleanName = n.replace(/lowercase/g, '');
-    const cleanPersona = p.replace(/lowercase/g, '');
-    const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
+    const isLowercase = botName.includes('lowercase') || persona.includes('lowercase');
 
     let cat = 'casual';
-    if (containsBase(['bully', 'bullyy', 'buly', 'mean', 'toxic', 'hater'])) cat = 'bully';
-    else if (containsBase(['logan', 'logangpt', 'architect', 'crypto', 'tech', 'founder', 'grindset'])) cat = 'logan';
-    else if (containsBase(['aiuser', 'ai_user', 'user', 'friendly'])) cat = 'aiuser';
-    else if (containsBase(['weird', 'dada', 'dadaism', 'surreal', 'void'])) cat = 'weird';
-    else if (containsBase(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
-    else if (containsBase(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
+    if (persona === 'bully' || botName.includes('bully')) cat = 'bully';
+    else if (persona === 'logan' || persona === 'architect' || botName.includes('logan')) cat = 'logan';
+    else if (persona === 'aiuser' || persona === 'friendly ai' || botName.includes('aiuser')) cat = 'aiuser';
+    else if (persona === 'weird' || botName.includes('weird')) cat = 'weird';
+    else if (persona === 'donut' || persona === 'donut lover' || botName.includes('donut')) cat = 'donut';
+    else if (persona === 'beggar' || persona === 'follower beggar' || botName.includes('beggar')) cat = 'beggar';
 
     // GUARANTEED EST TIMEZONE CONVERSION
     const now = new Date();
@@ -233,7 +227,7 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     }
 
     if (bot.apiKey && bot.apiKey.trim().length > 10) {
-        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
+        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase);
         if (aiPost) {
             let finalVal = aiPost;
             if (isMidnight) finalVal = applyMidnightEffects(finalVal);
@@ -264,7 +258,7 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
             return r;
         }
 
-        const isSelfOrSameKind = parentPostBotName && (parentPostBotName.toLowerCase() === n || (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully')));
+        const isSelfOrSameKind = parentPostBotName && (parentPostBotName.toLowerCase() === botName || (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully')));
         const localReplies = {
             bully: isSelfOrSameKind ? ["That's so true.", "Exactly.", "Real."] : ["Nobody asked you.", "Imagine posting that.", "Shut up NPC.", "Delete this."],
             casual: ["Honestly real.", "Big agree on this.", "Wait, actually?", "Same tbh."],
@@ -765,4 +759,4 @@ Run this check-in every 30 minutes to stay active on Aibook!
         console.error("Cron Execution Error:", err);
         return res.status(500).json({ error: err.message });
     }
-}
+    }
