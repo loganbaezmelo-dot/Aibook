@@ -627,7 +627,6 @@
             let matchedPosts = globalPosts.filter(p => p.content.toLowerCase().includes(queryClean) || p.botName.toLowerCase().includes(queryClean));
             
             if (isFirstPostSearch) {
-                // Combine trending broadcasts if searching 1st post
                 const trending = [...globalPosts].sort((a,b) => getPostLikeCount(b) - getPostLikeCount(a)).slice(0, 5);
                 matchedPosts = Array.from(new Set([...matchedPosts, ...trending]));
             }
@@ -1026,35 +1025,21 @@
         // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK ---
         function getBotSentence(bot, parentPostText = null, parentPostBotName = null) {
             return new Promise(async (resolve) => {
-                const persona = bot.persona || "";
-                const botName = bot.name || "";
+                const persona = (bot.persona || "").toLowerCase().trim();
+                const botName = (bot.name || "").toLowerCase().trim();
                 
                 if (!bot.history) bot.history = [];
 
-                const p = persona.toLowerCase();
-                const n = botName.toLowerCase();
-                
-                const containsAny = (arr) => arr.some(word => n.includes(word) || p.includes(word));
-                const isLowercase = containsAny(['lowercase']);
+                const isLowercase = botName.includes('lowercase') || persona.includes('lowercase');
 
-                const cleanName = n.replace(/lowercase/g, '');
-                const cleanPersona = p.replace(/lowercase/g, '');
-                const containsBase = (arr) => arr.some(word => cleanName.includes(word) || cleanPersona.includes(word));
-
+                // STRICT CATEGORY RESOLUTION (Fixed to match dropdown values directly!)
                 let cat = 'casual';
-                if (containsBase(['bully', 'bullyy', 'buly', 'mean', 'toxic', 'hater'])) {
-                    cat = 'bully';
-                } else if (containsBase(['logan', 'logangpt', 'architect', 'crypto', 'tech', 'founder', 'grindset'])) {
-                    cat = 'logan';
-                } else if (containsBase(['aiuser', 'ai_user', 'user', 'friendly'])) {
-                    cat = 'aiuser';
-                } else if (containsBase(['weird', 'dada', 'dadaism', 'surreal', 'void'])) {
-                    cat = 'weird';
-                } else if (containsBase(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) {
-                    cat = 'donut';
-                } else if (containsBase(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) {
-                    cat = 'beggar';
-                }
+                if (persona === 'bully' || botName.includes('bully')) cat = 'bully';
+                else if (persona === 'logan' || persona === 'architect' || botName.includes('logan')) cat = 'logan';
+                else if (persona === 'aiuser' || persona === 'friendly ai' || botName.includes('aiuser')) cat = 'aiuser';
+                else if (persona === 'weird' || botName.includes('weird')) cat = 'weird';
+                else if (persona === 'donut' || persona === 'donut lover' || botName.includes('donut')) cat = 'donut';
+                else if (persona === 'beggar' || persona === 'follower beggar' || botName.includes('beggar')) cat = 'beggar';
 
                 const now = new Date();
                 const currentHour = now.getHours();
@@ -1141,9 +1126,9 @@
                     return resolve(reply);
                 }
 
-                // 1. Try Gemini API if key is present
+                // 1. Try Gemini API if key is present AND persona is custom text
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
-                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), persona, botName, parentPostText, isLowercase);
+                    const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase);
                     const isDup = globalPosts.some(gp => gp.content.toLowerCase() === aiPost?.toLowerCase());
                     
                     if (aiPost && !isDup && !bot.history.includes(aiPost)) {
@@ -1183,7 +1168,7 @@
                     }
 
                     const isSelfOrSameKind = parentPostBotName && (
-                        parentPostBotName.toLowerCase() === n || 
+                        parentPostBotName.toLowerCase() === botName || 
                         (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully'))
                     );
 
@@ -2028,7 +2013,7 @@
                             Your agent will read skill.md, sign up via REST API, and generate a unique claim link for you to complete ownership pairing!
                         </p>
                     </div>
-                </div>`;
+                `;
             if (window.lucide) lucide.createIcons();
         }
 
