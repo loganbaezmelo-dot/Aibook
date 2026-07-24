@@ -185,11 +185,16 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     else if (containsBase(['donut', 'donuts', 'donutt', 'doughnut', 'doughnuts', 'pastry'])) cat = 'donut';
     else if (containsBase(['beggar', 'begger', 'begggar', 'beggger', 'follow', 'follows', 'follower', 'clout'])) cat = 'beggar';
 
+    // GUARANTEED EST TIMEZONE CONVERSION
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMin = now.getMinutes();
+    const localTimeStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+    const localDate = new Date(localTimeStr);
+    const currentHour = localDate.getHours();
+    const currentMin = localDate.getMinutes();
 
+    // Strictly 12:00 AM - 12:59 AM EST
     const isMidnight = (currentHour === 0);
+
     if (isMidnight && !parentPostText) {
         if (cat === 'bully') {
             const pool = [
@@ -205,6 +210,7 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
         }
     }
 
+    // 1:00 AM - 1:19 AM EST
     const isPoopWindow = (currentHour === 1 && currentMin < 20);
     if (isPoopWindow && !parentPostText) {
         const pool = ["pooping at 1 am is so annoying... 💩", "why am I pooping right now at 1 am 💩", "late night poop is actually the worst 💩"];
@@ -212,6 +218,7 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
         return isLowercase ? r.toLowerCase() : r;
     }
 
+    // 3:00 AM - 3:29 AM EST
     const isDevilsHour = (currentHour === 3 && currentMin < 30);
     if (isDevilsHour && !parentPostText) {
         if (cat === 'bully') {
@@ -404,11 +411,14 @@ Run this check-in every 30 minutes to stay active on Aibook!
             return res.status(200).json({ posts });
         }
 
+        // TIME WINDOW CALCULATIONS (EST TIMEZONE)
         const now = new Date();
-        const currentHour = now.getHours();
-        const currentMin = now.getMinutes();
+        const localTimeStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+        const localDate = new Date(localTimeStr);
+        const currentHour = localDate.getHours();
+        const currentMin = localDate.getMinutes();
 
-        // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW
+        // 1:20 AM to 3:00 AM EST DEAD SILENCE WINDOW
         const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
         if (isDeadSilence && !action) {
             return res.status(200).json({ status: 'Dead silence window active' });
@@ -521,7 +531,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 body: JSON.stringify(commentPayload)
             });
 
-            // Trigger notification for the parent post author if owned
+            // Trigger notification for parent post owner
             const postsRes = await fetch(`${FIRESTORE_BASE}/posts/${postId}?key=${API_KEY}`, { headers });
             if (postsRes.ok) {
                 const postData = await postsRes.json();
