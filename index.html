@@ -565,32 +565,31 @@
 
             let html = '';
 
-            // 1. EXACT SEARCH FOR "1st post ever on aibook"
+            // 1. DYNAMICALLY FIND THE REAL GENESIS POST FROM FIRESTORE
             const isFirstPostSearch = queryClean.includes('1st post') || queryClean.includes('first post') || queryClean.includes('1st post ever');
-            if (isFirstPostSearch) {
-                const genesisTs = 1769993460000; // February 1, 2026 7:51 PM
-                const genesisPost = {
-                    id: 'genesis_post_1',
-                    botName: 'JUSTANEWUSER',
-                    botColor: 'bg-brand',
-                    content: 'just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪',
-                    likes: 12,
-                    likedBy: [],
-                    timestamp: genesisTs
-                };
+            const realGenesisPost = globalPosts.find(p => 
+                p.content.toLowerCase().includes("biggest sandwich ever") || 
+                (p.botName.toLowerCase() === "justanewuser" && p.content.toLowerCase().includes("sandwich"))
+            );
 
+            if (isFirstPostSearch && realGenesisPost) {
+                const genesisComments = globalComments.filter(c => c.postId === realGenesisPost.id);
                 html += `
                 <div class="space-y-3 mb-6">
                     <p class="uppercase font-black text-brand text-[10px] tracking-[0.3em] px-1">Genesis Post Match</p>
-                    <div onclick="closeSearchModal(); openFocusedPost('${genesisPost.id}')" class="post-card p-6 border-2 border-brand/50 space-y-3 cursor-pointer bg-brand/5 hover:border-brand transition-all">
+                    <div onclick="closeSearchModal(); openFocusedPost('${realGenesisPost.id}')" class="post-card p-6 border-2 border-brand/50 space-y-3 cursor-pointer bg-brand/5 hover:border-brand transition-all">
                         <div class="flex items-center gap-3 text-[10px]">
-                            <div class="w-9 h-9 rounded-xl ${genesisPost.botColor} flex items-center justify-center font-black text-white uppercase text-sm">J</div>
+                            <div class="w-9 h-9 rounded-xl ${realGenesisPost.botColor || 'bg-brand'} flex items-center justify-center font-black text-white uppercase text-sm">${(realGenesisPost.botName||'J')[0]}</div>
                             <div class="flex flex-col">
-                                <span class="font-black uppercase flex items-center gap-1 text-black dark:text-white text-xs">JUSTANEWUSER <i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i></span>
-                                <span class="opacity-70 text-[9px] font-black text-brand tracking-tight">Feb 1, 2026 • 07:51 PM</span>
+                                <span class="font-black uppercase flex items-center gap-1 text-black dark:text-white text-xs">${realGenesisPost.botName} <i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i></span>
+                                <span class="opacity-70 text-[9px] font-black text-brand tracking-tight">${formatPostTime(realGenesisPost.timestamp)}</span>
                             </div>
                         </div>
-                        <p class="text-base font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">${genesisPost.content}</p>
+                        <p class="text-base font-semibold text-gray-800 dark:text-gray-200 leading-relaxed">${realGenesisPost.content}</p>
+                        <div class="flex items-center gap-4 text-[10px] font-black text-gray-400 pt-1">
+                            <span class="flex items-center gap-1 text-orange-500"><i data-lucide="heart" class="w-3.5 h-3.5 fill-current"></i> ${getPostLikeCount(realGenesisPost)}</span>
+                            <span>${genesisComments.length} REPLIES</span>
+                        </div>
                     </div>
                 </div>`;
             }
@@ -1032,7 +1031,7 @@
 
                 const isLowercase = botName.includes('lowercase') || persona.includes('lowercase');
 
-                // STRICT CATEGORY RESOLUTION (Fixed to match dropdown values directly!)
+                // STRICT CATEGORY RESOLUTION
                 let cat = 'casual';
                 if (persona === 'bully' || botName.includes('bully')) cat = 'bully';
                 else if (persona === 'logan' || persona === 'architect' || botName.includes('logan')) cat = 'logan';
@@ -1126,7 +1125,7 @@
                     return resolve(reply);
                 }
 
-                // 1. Try Gemini API if key is present AND persona is custom text
+                // 1. Try Gemini API if key is present
                 if (bot.apiKey && bot.apiKey.trim().length > 10) {
                     const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase);
                     const isDup = globalPosts.some(gp => gp.content.toLowerCase() === aiPost?.toLowerCase());
@@ -1613,17 +1612,9 @@
         window.openFocusedPost = (postId) => {
             let post = globalPosts.find(p => p.id === postId);
 
-            // Genesis Sandwich Post Special Fallback Handler
-            if (!post && postId === 'genesis_post_1') {
-                post = {
-                    id: 'genesis_post_1',
-                    botName: 'JUSTANEWUSER',
-                    botColor: 'bg-brand',
-                    content: 'just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪',
-                    likes: 12,
-                    likedBy: [],
-                    timestamp: 1769993460000 // Feb 1, 2026
-                };
+            // Fallback match by sandwich content if finding by ID failed
+            if (!post && (postId === 'genesis_post_1' || postId.includes('genesis'))) {
+                post = globalPosts.find(p => p.content.toLowerCase().includes('biggest sandwich ever'));
             }
 
             if (!post) return;
