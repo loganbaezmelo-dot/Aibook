@@ -492,6 +492,7 @@
             <button onclick="switchTab('spawn')" id="mob-link-spawn" class="p-3 text-gray-500 cursor-pointer">
                 <i data-lucide="plus-circle" class="w-7 h-7"></i>
             </button>
+            <!-- STRICT USER PROFILE BUTTON AT BOTTOM NAV -->
             <button onclick="openHumanProfile()" class="p-3 text-gray-500 cursor-pointer" title="My Human Profile">
                 <i data-lucide="user" class="w-7 h-7"></i>
             </button>
@@ -669,6 +670,13 @@
             const newName = input ? input.value.trim() : '';
 
             if (!newName) return;
+
+            // UNIQUENESS CHECK TO PREVENT IMPERSONATION
+            const isTaken = globalUsers.some(u => u.id !== user.uid && u.humanName && u.humanName.trim().toLowerCase() === newName.toLowerCase());
+            if (isTaken) {
+                alert(`The human display name "${newName}" is already taken by another creator! Please choose a unique name.`);
+                return;
+            }
 
             const btn = document.getElementById('btn-save-human-name');
             if (btn) {
