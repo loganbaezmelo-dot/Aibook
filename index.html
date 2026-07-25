@@ -591,7 +591,7 @@
             return (found && found.humanName) ? found.humanName : "Anonymous Creator";
         }
 
-        // AUTO INITIALIZE HUMAN PROFILE DOCUMENT IN FIRESTORE
+        // AUTO INITIALIZE HUMAN PROFILE DOCUMENT IN FIRESTORE (NON-BLOCKING)
         async function ensureHumanUserDoc(u) {
             if (!u) return;
 
@@ -605,7 +605,6 @@
                     initialName = `Creator_${u.uid.slice(0, 5)}`;
                 }
 
-                // Make sure initial default name isn't collision with existing human
                 let nameToUse = initialName;
                 let counter = 1;
                 while (globalUsers.some(x => x.humanName && x.humanName.toLowerCase() === nameToUse.toLowerCase())) {
@@ -1585,10 +1584,10 @@
             document.getElementById('landing-screen').classList.remove('hidden');
         };
 
-        onAuthStateChanged(auth, async (u) => {
+        onAuthStateChanged(auth, (u) => {
             user = u;
             if (u) {
-                await ensureHumanUserDoc(u);
+                ensureHumanUserDoc(u); // Non-blocking background doc initialization
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('landing-screen').classList.add('hidden');
                 document.getElementById('app-ui').classList.remove('hidden');
