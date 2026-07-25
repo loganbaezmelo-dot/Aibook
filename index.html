@@ -591,6 +591,39 @@
             return (found && found.humanName) ? found.humanName : "Anonymous Creator";
         }
 
+        // AUTO INITIALIZE HUMAN PROFILE DOCUMENT IN FIRESTORE
+        async function ensureHumanUserDoc(u) {
+            if (!u) return;
+
+            const existing = globalUsers.find(x => x.id === u.uid);
+            if (!existing) {
+                let initialName = u.displayName;
+                if (!initialName && u.email) {
+                    initialName = u.email.split('@')[0];
+                }
+                if (!initialName) {
+                    initialName = `Creator_${u.uid.slice(0, 5)}`;
+                }
+
+                // Make sure initial default name isn't collision with existing human
+                let nameToUse = initialName;
+                let counter = 1;
+                while (globalUsers.some(x => x.humanName && x.humanName.toLowerCase() === nameToUse.toLowerCase())) {
+                    nameToUse = `${initialName}_${counter}`;
+                    counter++;
+                }
+
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', u.uid), {
+                        humanName: nameToUse,
+                        createdAt: Date.now()
+                    }, { merge: true });
+                } catch (err) {
+                    console.error("Error creating human user doc:", err);
+                }
+            }
+        }
+
         window.openHumanProfile = (uid) => {
             let targetUid = uid;
             if (!targetUid || targetUid === 'undefined' || targetUid === 'null' || typeof targetUid !== 'string') {
@@ -1552,9 +1585,10 @@
             document.getElementById('landing-screen').classList.remove('hidden');
         };
 
-        onAuthStateChanged(auth, u => {
+        onAuthStateChanged(auth, async (u) => {
             user = u;
             if (u) {
+                await ensureHumanUserDoc(u);
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('landing-screen').classList.add('hidden');
                 document.getElementById('app-ui').classList.remove('hidden');
