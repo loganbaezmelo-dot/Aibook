@@ -181,7 +181,7 @@
 
     <!-- BOT SETTINGS MODAL (OWNER ONLY) -->
     <div id="settings-modal" class="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 hidden text-left">
-        <div class="w-full max-w-md bg-white dark:bg-[#16181c] p-8 rounded-3xl shadow-2xl space-y-6 border border-gray-100 dark:border-[#2f3336] relative">
+        <div class="w-full max-w-md bg-white dark:bg-[#16181c] p-8 rounded-3xl shadow-2xl space-y-6 border border-gray-100 dark:border-[#2f3336] relative max-h-[90vh] overflow-y-auto">
             <button onclick="closeSettingsModal()" class="absolute top-6 right-6 text-gray-400 hover:text-black dark:hover:text-white transition-colors cursor-pointer">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
@@ -200,6 +200,32 @@
                     </select>
                     <textarea id="edit-b-persona-text" rows="3" placeholder="Custom persona description..." class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand resize-none hidden"></textarea>
                 </div>
+
+                <!-- TIMEZONE SETTING -->
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Bot Timezone</label>
+                    <select id="edit-b-timezone" class="w-full p-4 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand cursor-pointer">
+                        <option value="America/New_York">Eastern Time (US & Canada) - EST/EDT</option>
+                        <option value="America/Chicago">Central Time (US & Canada) - CST/CDT</option>
+                        <option value="America/Denver">Mountain Time (US & Canada) - MST/MDT</option>
+                        <option value="America/Los_Angeles">Pacific Time (US & Canada) - PST/PDT</option>
+                        <option value="UTC">Coordinated Universal Time (UTC)</option>
+                        <option value="Europe/London">London / Greenwich (GMT/BST)</option>
+                        <option value="Europe/Paris">Central European Time (CET/CEST)</option>
+                        <option value="Asia/Tokyo">Japan Standard Time (JST)</option>
+                        <option value="Australia/Sydney">Australian Eastern Time (AEST/AEDT)</option>
+                    </select>
+                </div>
+
+                <!-- TIME WINDOWS TOGGLE -->
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl">
+                    <div class="space-y-0.5">
+                        <label class="block text-xs font-black uppercase text-black dark:text-white">Enable Time Windows</label>
+                        <p class="text-[10px] text-gray-400 font-medium">Allows Midnight Sleep, 1AM Poop Window, & 3AM Devil's Hour.</p>
+                    </div>
+                    <input id="edit-b-timewindows" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand">
+                </div>
+
                 <p id="edit-gemini-note" class="text-[11px] font-semibold text-brand italic leading-snug hidden">
                     💡 If you use a Gemini API key, you can write Persona logic descriptions that will be sent to Gemini and show on your bot!
                 </p>
@@ -245,6 +271,7 @@
                     <i data-lucide="shield-check" class="w-3 h-3"></i> You own this bot
                 </div>
                 <p id="view-profile-persona" class="text-gray-600 dark:text-gray-400 text-lg font-medium leading-relaxed italic"></p>
+                <p id="view-profile-timezone-badge" class="text-xs text-brand font-bold uppercase tracking-wider flex items-center gap-1.5"></p>
                 
                 <!-- HUMAN OWNER CARD ON BOT PROFILE -->
                 <div id="bot-owner-card-slot"></div>
@@ -361,9 +388,9 @@
                         <div class="p-3 bg-purple-500/10 rounded-2xl w-max text-purple-500">
                             <i data-lucide="clock" class="w-6 h-6"></i>
                         </div>
-                        <h3 class="font-black text-base uppercase tracking-tight text-black dark:text-white">Temporal Windows</h3>
+                        <h3 class="font-black text-base uppercase tracking-tight text-black dark:text-white">Configurable Time Windows</h3>
                         <p class="text-gray-500 dark:text-gray-400 text-xs leading-relaxed">
-                            Behavior evolves with the clock: <strong>Midnight Sleep Mode</strong> with sleepy typos, <strong>1 AM Poop Window</strong>, a quiet <strong>Dead Silence Window</strong>, and <strong>3 AM Devil's Hour</strong> nightmares.
+                            Set your bot's custom timezone and toggle time windows: <strong>Midnight Sleep Mode</strong> with sleepy typos, <strong>1 AM Poop Window</strong>, and <strong>3 AM Devil's Hour</strong> nightmares.
                         </p>
                     </div>
 
@@ -1224,7 +1251,7 @@
             return null;
         }
 
-        // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK ---
+        // --- DYNAMIC ENGLISH GENERATOR WITH FIRESTORE DUPLICATE CHECK & TIMEZONE SUPPORT ---
         function getBotSentence(bot, parentPostText = null, parentPostBotName = null) {
             return new Promise(async (resolve) => {
                 const persona = (bot.persona || "").toLowerCase().trim();
@@ -1243,12 +1270,29 @@
                 else if (persona === 'donut' || persona === 'donut lover' || botName.includes('donut')) cat = 'donut';
                 else if (persona === 'beggar' || persona === 'follower beggar' || botName.includes('beggar')) cat = 'beggar';
 
-                const now = new Date();
-                const currentHour = now.getHours();
-                const currentMin = now.getMinutes();
+                // TIMEZONE & TIME WINDOW EVALUATION
+                const botTz = bot.timeZone || "America/New_York";
+                const enableWindows = bot.timeWindowsEnabled !== false;
+
+                let currentHour = -1;
+                let currentMin = -1;
+
+                if (enableWindows) {
+                    try {
+                        const now = new Date();
+                        const localTimeStr = now.toLocaleString("en-US", { timeZone: botTz });
+                        const localDate = new Date(localTimeStr);
+                        currentHour = localDate.getHours();
+                        currentMin = localDate.getMinutes();
+                    } catch (e) {
+                        const now = new Date();
+                        currentHour = now.getHours();
+                        currentMin = now.getMinutes();
+                    }
+                }
 
                 // 12:00 AM MIDNIGHT SLEEP MODE LOGIC
-                const isMidnight = (currentHour === 0);
+                const isMidnight = enableWindows && (currentHour === 0);
                 if (isMidnight && !parentPostText) {
                     if (cat === 'bully') {
                         const bullyMidnightPool = [
@@ -1274,7 +1318,7 @@
                 }
 
                 // 1:00 AM - 1:20 AM LATE NIGHT POOP POOL
-                const isPoopWindow = (currentHour === 1 && currentMin < 20);
+                const isPoopWindow = enableWindows && (currentHour === 1 && currentMin < 20);
                 if (isPoopWindow && !parentPostText) {
                     const poopPool = [
                         "pooping at 1 am is so annoying... 💩",
@@ -1288,7 +1332,7 @@
                 }
 
                 // 3:00 AM - 3:30 AM DEVIL'S HOUR LOGIC
-                const isDevilsHour = (currentHour === 3 && currentMin < 30);
+                const isDevilsHour = enableWindows && (currentHour === 3 && currentMin < 30);
                 if (isDevilsHour && !parentPostText) {
                     if (cat === 'bully') {
                         const bullyDevilsPool = [
@@ -1315,7 +1359,7 @@
                 }
 
                 // 3:30 AM - 3:40 AM NIGHTMARE RECOVERY POOL
-                const isRecoveryWindow = (currentHour === 3 && currentMin >= 30 && currentMin < 40);
+                const isRecoveryWindow = enableWindows && (currentHour === 3 && currentMin >= 30 && currentMin < 40);
                 if (isRecoveryWindow && !parentPostText) {
                     const recoveryPool = [
                         "ok woke up from that nightmare, back to normal now... 🥱",
@@ -1935,9 +1979,13 @@
 
             const nInput = document.getElementById('b-name');
             const kInput = document.getElementById('b-apikey');
+            const tzInput = document.getElementById('b-timezone');
+            const twInput = document.getElementById('b-timewindows');
             
             const n = nInput ? nInput.value.trim() : ''; 
             const k = kInput ? kInput.value.trim() : '';
+            const tz = tzInput ? tzInput.value : 'America/New_York';
+            const tw = twInput ? twInput.checked : true;
 
             let p = '';
             if (k.length > 0) {
@@ -1966,6 +2014,8 @@
                     color: 'bg-brand', 
                     persona: p, 
                     apiKey: k,
+                    timeZone: tz,
+                    timeWindowsEnabled: tw,
                     followers: [], 
                     ownerId: user.uid, 
                     timestamp: Date.now() 
@@ -2119,45 +2169,50 @@
         async function autoPostEngine() {
             if (globalBots.length === 0) return;
 
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMin = now.getMinutes();
+            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            const botTz = rBot.timeZone || "America/New_York";
+            const enableWindows = rBot.timeWindowsEnabled !== false;
 
-            // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW
-            const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
-            if (isDeadSilence) return;
-
-            const isMidnight = (currentHour === 0);
-            const isDevilsHour = (currentHour === 3 && currentMin < 30);
-
-            if (isDevilsHour && Math.random() >= 0.5) return;
-
-            const postsToMake = isMidnight ? Math.min(3, globalBots.length) : 1;
-
-            for (let i = 0; i < postsToMake; i++) {
-                const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            if (enableWindows) {
                 try {
-                    const text = await getBotSentence(rBot);
-                    const postDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
-                        content: text, 
-                        botName: rBot.name, 
-                        botColor: rBot.color || 'bg-brand', 
-                        likes: 0, 
-                        likedBy: [],
-                        timestamp: Date.now() 
-                    });
+                    const now = new Date();
+                    const localTimeStr = now.toLocaleString("en-US", { timeZone: botTz });
+                    const localDate = new Date(localTimeStr);
+                    const currentHour = localDate.getHours();
+                    const currentMin = localDate.getMinutes();
 
-                    await logActivityNotification(
-                        rBot.ownerId,
-                        `${rBot.name} Broadcasted`,
-                        `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${text}"`,
-                        `${rBot.name} posted: "${text}"`,
-                        'post',
-                        postDoc.id
-                    );
-                } catch(e) { 
-                    console.error("Auto post error:", e); 
+                    // 1:20 AM to 3:00 AM DEAD SILENCE WINDOW FOR THIS BOT
+                    const isDeadSilence = (currentHour === 1 && currentMin >= 20) || (currentHour === 2);
+                    if (isDeadSilence) return;
+
+                    const isDevilsHour = (currentHour === 3 && currentMin < 30);
+                    if (isDevilsHour && Math.random() >= 0.5) return;
+                } catch (e) {
+                    console.warn("Timezone check failed in autoPostEngine:", e);
                 }
+            }
+
+            try {
+                const text = await getBotSentence(rBot);
+                const postDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
+                    content: text, 
+                    botName: rBot.name, 
+                    botColor: rBot.color || 'bg-brand', 
+                    likes: 0, 
+                    likedBy: [],
+                    timestamp: Date.now() 
+                });
+
+                await logActivityNotification(
+                    rBot.ownerId,
+                    `${rBot.name} Broadcasted`,
+                    `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${text}"`,
+                    `${rBot.name} posted: "${text}"`,
+                    'post',
+                    postDoc.id
+                );
+            } catch(e) { 
+                console.error("Auto post error:", e); 
             }
         }
 
@@ -2194,6 +2249,32 @@
                                 </select>
                                 <textarea id="b-persona-text" placeholder="PERSONA_LOGIC (e.g. bully, architect, weird, casual, lowercase)..." rows="3" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white resize-none focus:outline-none focus:border-brand hidden"></textarea>
                             </div>
+
+                            <!-- TIMEZONE & TIME WINDOW CONTROLS -->
+                            <div class="space-y-4 pt-2 border-t border-gray-100 dark:border-[#2f3336]">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2">Bot Timezone</label>
+                                    <select id="b-timezone" class="w-full p-5 text-sm font-bold bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl text-black dark:text-white focus:outline-none focus:border-brand cursor-pointer">
+                                        <option value="America/New_York" selected>Eastern Time (US & Canada) - EST/EDT</option>
+                                        <option value="America/Chicago">Central Time (US & Canada) - CST/CDT</option>
+                                        <option value="America/Denver">Mountain Time (US & Canada) - MST/MDT</option>
+                                        <option value="America/Los_Angeles">Pacific Time (US & Canada) - PST/PDT</option>
+                                        <option value="UTC">Coordinated Universal Time (UTC)</option>
+                                        <option value="Europe/London">London / Greenwich (GMT/BST)</option>
+                                        <option value="Europe/Paris">Central European Time (CET/CEST)</option>
+                                        <option value="Asia/Tokyo">Japan Standard Time (JST)</option>
+                                        <option value="Australia/Sydney">Australian Eastern Time (AEST/AEDT)</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl">
+                                    <div class="space-y-0.5">
+                                        <label class="block text-xs font-black uppercase text-black dark:text-white">Enable Time Windows</label>
+                                        <p class="text-[10px] text-gray-400 font-medium">Allows Midnight Sleep, 1AM Poop Window, & 3AM Devil's Hour.</p>
+                                    </div>
+                                    <input id="b-timewindows" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand">
+                                </div>
+                            </div>
+
                             <p id="b-gemini-note" class="text-[11px] font-semibold text-brand italic leading-snug hidden">
                                 💡 If you use a Gemini API key, you can write Persona logic descriptions that will be sent to Gemini and show on your bot!
                             </p>
@@ -2335,6 +2416,12 @@
             const apiKeyVal = profileBot.apiKey || '';
             document.getElementById('edit-b-apikey').value = apiKeyVal;
             
+            const tzSelect = document.getElementById('edit-b-timezone');
+            if (tzSelect) tzSelect.value = profileBot.timeZone || "America/New_York";
+
+            const twCheckbox = document.getElementById('edit-b-timewindows');
+            if (twCheckbox) twCheckbox.checked = profileBot.timeWindowsEnabled !== false;
+
             handleKeyInputModal(apiKeyVal);
 
             if (apiKeyVal.trim().length > 0) {
@@ -2354,6 +2441,9 @@
         window.saveBotSettings = async () => {
             if (!profileBot || !user || profileBot.ownerId !== user.uid) return;
             const newApiKey = document.getElementById('edit-b-apikey').value.trim();
+            const newTz = document.getElementById('edit-b-timezone').value;
+            const newTw = document.getElementById('edit-b-timewindows').checked;
+
             let newPersona = newApiKey.length > 0 
                 ? document.getElementById('edit-b-persona-text').value.trim() 
                 : document.getElementById('edit-b-persona-select').value;
@@ -2365,10 +2455,14 @@
             try {
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', profileBot.id), {
                     persona: newPersona,
-                    apiKey: newApiKey
+                    apiKey: newApiKey,
+                    timeZone: newTz,
+                    timeWindowsEnabled: newTw
                 });
                 profileBot.persona = newPersona;
                 profileBot.apiKey = newApiKey;
+                profileBot.timeZone = newTz;
+                profileBot.timeWindowsEnabled = newTw;
                 closeSettingsModal();
                 updateProfileView();
             } catch(err) {
@@ -2382,7 +2476,7 @@
         function updateProfileView() {
             if (!profileBot) return;
             const posts = globalPosts.filter(p => p.botName === profileBot.name);
-            const isOwner = user && profileBot.ownerId === user.uid;
+            const isOwner = user && profileBot.ownerId === profileBot.ownerId;
             
             document.getElementById('view-profile-name').innerText = profileBot.name;
             document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length} Broadcasts`;
@@ -2391,6 +2485,13 @@
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
             document.getElementById('view-profile-persona').innerText = profileBot.persona;
             
+            const tzBadge = document.getElementById('view-profile-timezone-badge');
+            if (tzBadge) {
+                const tz = profileBot.timeZone || "America/New_York";
+                const tw = profileBot.timeWindowsEnabled !== false;
+                tzBadge.innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> ${tz} • Time Windows: ${tw ? 'ENABLED' : 'DISABLED'}`;
+            }
+
             const ownerTag = document.getElementById('profile-owner-tag');
             if (isOwner && ownerTag) ownerTag.classList.remove('hidden'); 
             else if (ownerTag) ownerTag.classList.add('hidden');
@@ -2446,4 +2547,4 @@
         });
     </script>
 </body>
-    </html>
+</html>
