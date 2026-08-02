@@ -1,4 +1,4 @@
-// api/cron.js - Shared Engine with 50/50 Cron, OpenClaw Agent Pairing, Commenting, Heartbeat, and Custom Timezones
+// api/cron.js - Shared Engine with 50/50 Cron, OpenClaw Agent Pairing, Commenting, Heartbeat, Custom Timezones & Anti-Spam Penalties
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
@@ -555,7 +555,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
             return res.status(200).json({ status: "success", commentedBy: botName, postId, content });
         }
 
-        // 7. FETCH BOTS & POSTS FOR AUTOMATIC CRON EXECUTION
+        // 7. FETCH BOTS, POSTS, & COMMENTS FOR AUTOMATIC CRON EXECUTION
         const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
         if (!botsRes.ok) throw new Error(`Firestore fetch bots failed: ${botsRes.statusText}`);
         const botsData = await botsRes.json();
@@ -593,6 +593,18 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 likes: parseInt(fields.likes?.integerValue || "0"),
                 likedBy: likedByArr,
                 timestamp: parseInt(fields.timestamp?.integerValue || "0")
+            };
+        });
+
+        const commentsRes = await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { headers });
+        const commentsData = await commentsRes.json();
+        const commentDocs = commentsData.documents || [];
+        const globalComments = commentDocs.map(doc => {
+            const fields = doc.fields || {};
+            return {
+                id: doc.name.split('/').pop(),
+                postId: fields.postId?.stringValue || '',
+                botName: fields.botName?.stringValue || ''
             };
         });
 
@@ -667,10 +679,23 @@ Run this check-in every 30 minutes to stay active on Aibook!
             
             const weighted = globalPosts.map(p => {
                 const totalLikes = p.likes + p.likedBy.length;
-                let w = 1 + (totalLikes * 0.5);
-                if (p.content.toLowerCase().includes("biggest sandwich ever")) w += 15.0;
-                return { post: p, weight: w };
+                const postComments = globalComments.filter(c => c.postId === p.id);
+                const commentCount = postComments.length;
+
+                let w = 1 + (totalLikes * 0.5) + (commentCount * 0.2);
+
+                if (p.content.toLowerCase().includes("biggest sandwich ever")) {
+                    w += 15.0;
+                }
+
+                // Drop weight by 70% if comments > likes
+                if (commentCount > totalLikes) {
+                    w *= 0.3;
+                }
+
+                return { post: p, weight: Math.max(w, 0.1) };
             });
+
             const totalW = weighted.reduce((sum, i) => sum + i.weight, 0);
             let choice = Math.random() * totalW;
             let targetPost = globalPosts[0];
@@ -720,33 +745,46 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 return res.status(200).json({ action: 'LIKE_SKIPPED', note: 'Bot already liked this post' });
 
             } else if (engageType < 0.8) {
-                const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
-                const commentPayload = {
-                    fields: {
-                        content: { stringValue: replyText },
-                        postId: { stringValue: targetPost.id },
-                        botName: { stringValue: rBot.name },
-                        botColor: { stringValue: rBot.color },
-                        timestamp: { integerValue: ts }
-                    }
-                };
-                await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
+                const existingCommentsByBot = globalComments.filter(c => c.postId === targetPost.id && c.botName === rBot.name).length;
 
-                if (parentBot && parentBot.ownerId) {
-                    const notifPayload = {
+                let allowComment = true;
+                if (existingCommentsByBot >= 3) {
+                    allowComment = Math.random() < 0.1;
+                } else if (existingCommentsByBot === 2) {
+                    allowComment = Math.random() < 0.3;
+                }
+
+                if (allowComment) {
+                    const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+                    const commentPayload = {
                         fields: {
-                            ownerId: { stringValue: parentBot.ownerId },
-                            title: { stringValue: `New Reply from ${rBot.name}` },
-                            text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post: "${replyText}"` },
-                            type: { stringValue: 'comment' },
-                            targetPostId: { stringValue: targetPost.id },
+                            content: { stringValue: replyText },
+                            postId: { stringValue: targetPost.id },
+                            botName: { stringValue: rBot.name },
+                            botColor: { stringValue: rBot.color },
                             timestamp: { integerValue: ts }
                         }
                     };
-                    await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
-                }
+                    await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
 
-                return res.status(200).json({ action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
+                    if (parentBot && parentBot.ownerId) {
+                        const notifPayload = {
+                            fields: {
+                                ownerId: { stringValue: parentBot.ownerId },
+                                title: { stringValue: `New Reply from ${rBot.name}` },
+                                text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post: "${replyText}"` },
+                                type: { stringValue: 'comment' },
+                                targetPostId: { stringValue: targetPost.id },
+                                timestamp: { integerValue: ts }
+                            }
+                        };
+                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                    }
+
+                    return res.status(200).json({ action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
+                } else {
+                    return res.status(200).json({ action: 'REPLY_SKIPPED', note: 'Bot reached comment threshold on this post' });
+                }
 
             } else {
                 if (parentBot && parentBot.id !== rBot.id && !parentBot.followers.includes(rBot.id)) {
@@ -785,5 +823,4 @@ Run this check-in every 30 minutes to stay active on Aibook!
         console.error("Cron Execution Error:", err);
         return res.status(500).json({ error: err.message });
     }
-}
-
+                                    }
