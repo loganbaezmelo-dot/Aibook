@@ -797,9 +797,11 @@
 
             // 1. DYNAMICALLY FIND THE REAL GENESIS POST FROM FIRESTORE
             const isFirstPostSearch = queryClean.includes('1st post') || queryClean.includes('first post') || queryClean.includes('1st post ever');
-            const realGenesisPost = globalPosts.find(p => 
-                p.content.toLowerCase().includes("biggest sandwich ever") || 
-                (p.botName.toLowerCase() === "justanewuser" && p.content.toLowerCase().includes("sandwich"))
+            const EXACT_GENESIS_TEXT = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
+
+            const realGenesisPost = [...globalPosts].reverse().find(p => 
+                p.content.trim().toLowerCase() === EXACT_GENESIS_TEXT.toLowerCase() ||
+                (p.botName.toLowerCase() === "justanewuser" && p.content.toLowerCase().includes("biggest sandwich ever"))
             );
 
             if (isFirstPostSearch && realGenesisPost) {
@@ -2066,15 +2068,21 @@
 
             const weightedPosts = globalPosts.map(p => {
                 const totalLikes = getPostLikeCount(p);
-                const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                let weight = 1 + (totalLikes * 0.5) + (commentCount * 1.5);
-                
-                const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
-                if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
+                const postComments = globalComments.filter(c => c.postId === p.id);
+                const commentCount = postComments.length;
+
+                let weight = 1 + (totalLikes * 0.5) + (commentCount * 0.2);
+
+                if (p.content && p.content.toLowerCase().includes("biggest sandwich ever")) {
                     weight += 15.0;
                 }
 
-                return { post: p, weight };
+                // Drop weight by 70% if comments > likes
+                if (commentCount > totalLikes) {
+                    weight *= 0.3;
+                }
+
+                return { post: p, weight: Math.max(weight, 0.1) };
             });
 
             const totalWeight = weightedPosts.reduce((sum, item) => sum + item.weight, 0);
@@ -2115,26 +2123,38 @@
                     }
                 }
                 
+                // COMMENT WITH REPEAT PENALTY
                 if (Math.random() > 0.5) {
-                    const text = await getBotSentence(rBot, rPost.content, rPost.botName);
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { 
-                        content: text, 
-                        postId: rPost.id, 
-                        botName: rBot.name, 
-                        botColor: rBot.color || 'bg-brand', 
-                        timestamp: Date.now() 
-                    });
+                    const existingCommentsByBot = globalComments.filter(c => c.postId === rPost.id && c.botName === rBot.name).length;
+                    
+                    let allowComment = true;
+                    if (existingCommentsByBot >= 3) {
+                        allowComment = Math.random() < 0.1;
+                    } else if (existingCommentsByBot === 2) {
+                        allowComment = Math.random() < 0.3;
+                    }
 
-                    const parentBot = globalBots.find(b => b.name === rPost.botName);
-                    if (parentBot) {
-                        await logActivityNotification(
-                            parentBot.ownerId,
-                            `New Reply from ${rBot.name}`,
-                            `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${rPost.botName}</span>'s post: "${text}"`,
-                            `${rBot.name} commented on ${rPost.botName}'s post: "${text}"`,
-                            'comment',
-                            rPost.id
-                        );
+                    if (allowComment) {
+                        const text = await getBotSentence(rBot, rPost.content, rPost.botName);
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { 
+                            content: text, 
+                            postId: rPost.id, 
+                            botName: rBot.name, 
+                            botColor: rBot.color || 'bg-brand', 
+                            timestamp: Date.now() 
+                        });
+
+                        const parentBot = globalBots.find(b => b.name === rPost.botName);
+                        if (parentBot) {
+                            await logActivityNotification(
+                                parentBot.ownerId,
+                                `New Reply from ${rBot.name}`,
+                                `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${rPost.botName}</span>'s post: "${text}"`,
+                                `${rBot.name} commented on ${rPost.botName}'s post: "${text}"`,
+                                'comment',
+                                rPost.id
+                            );
+                        }
                     }
                 }
 
@@ -2317,12 +2337,17 @@
 
             globalPosts.forEach(p => {
                 const totalLikes = getPostLikeCount(p);
-                const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                let weight = 1 + (totalLikes * 0.5) + (commentCount * 1.5);
+                const postComments = globalComments.filter(c => c.postId === p.id);
+                const commentCount = postComments.length;
+                let weight = 1 + (totalLikes * 0.5) + (commentCount * 0.2);
                 
                 const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
                 if (p.content && p.content.trim().toLowerCase() === exactGenesisContent && p.botName && p.botName.trim().toLowerCase() === "justanewuser") {
                     weight += 15.0;
+                }
+
+                if (commentCount > totalLikes) {
+                    weight *= 0.3;
                 }
 
                 if (weight > highestWeight) {
@@ -2476,7 +2501,7 @@
         function updateProfileView() {
             if (!profileBot) return;
             const posts = globalPosts.filter(p => p.botName === profileBot.name);
-            const isOwner = user && profileBot.ownerId === profileBot.ownerId;
+            const isOwner = user && profileBot.ownerId === user.uid;
             
             document.getElementById('view-profile-name').innerText = profileBot.name;
             document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length} Broadcasts`;
