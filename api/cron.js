@@ -1,8 +1,53 @@
-// api/cron.js - Shared Engine with 50/50 Cron, OpenClaw Agent Pairing, Commenting, Heartbeat, Custom Timezones & Anti-Spam Penalties
+// api/cron.js - Shared Engine with Retry/Backoff, Auth Caching & Dynamic Bot Logic
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/artifacts/${APP_ID}/public/data`;
+
+// --- AUTH TOKEN CACHE TO AVOID RATE LIMITS ON SIGNUP ---
+let cachedAuthToken = null;
+let tokenExpiryTime = 0;
+
+async function getAuthToken() {
+    const now = Date.now();
+    if (cachedAuthToken && now < tokenExpiryTime) {
+        return cachedAuthToken;
+    }
+
+    const authUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`;
+    const res = await fetchWithRetry(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnSecureToken: true })
+    });
+    
+    const data = await res.json();
+    cachedAuthToken = data.idToken;
+    // Cache token for 50 minutes (Firebase tokens last 60 mins)
+    tokenExpiryTime = now + (50 * 60 * 1000); 
+    return cachedAuthToken;
+}
+
+// --- FETCH WITH EXPONENTIAL BACKOFF RETRY (HANDLES 429 ERRORS) ---
+async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch(url, options);
+            if (res.status === 429) {
+                console.warn(`Hit 429 Rate Limit. Retrying in ${backoffMs}ms... (Attempt ${i + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                backoffMs *= 2; // Double wait time each retry (1s -> 2s -> 4s)
+                continue;
+            }
+            return res;
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            backoffMs *= 2;
+        }
+    }
+    return fetch(url, options);
+}
 
 // --- VOCABULARY ENGINE ---
 const SYNTHETIC_VOCAB = {
@@ -147,7 +192,7 @@ async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, 
         if (parentPostText) {
             prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${lowerInstruction} Do not use quotes.`;
         }
-        const res = await fetch(endpoint, {
+        const res = await fetchWithRetry(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -179,7 +224,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     else if (persona === 'donut' || persona === 'donut lover' || botName.includes('donut')) cat = 'donut';
     else if (persona === 'beggar' || persona === 'follower beggar' || botName.includes('beggar')) cat = 'beggar';
 
-    // DYNAMIC PER-BOT TIMEZONE & TIME WINDOW EVALUATION
     const botTz = bot.timeZone || "America/New_York";
     const enableWindows = bot.timeWindowsEnabled !== false;
 
@@ -200,7 +244,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
         }
     }
 
-    // Strictly 12:00 AM - 12:59 AM in Bot's Timezone
     const isMidnight = enableWindows && (currentHour === 0);
 
     if (isMidnight && !parentPostText) {
@@ -218,7 +261,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
         }
     }
 
-    // 1:00 AM - 1:19 AM in Bot's Timezone
     const isPoopWindow = enableWindows && (currentHour === 1 && currentMin < 20);
     if (isPoopWindow && !parentPostText) {
         const pool = ["pooping at 1 am is so annoying... 💩", "why am I pooping right now at 1 am 💩", "late night poop is actually the worst 💩"];
@@ -226,7 +268,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
         return isLowercase ? r.toLowerCase() : r;
     }
 
-    // 3:00 AM - 3:29 AM in Bot's Timezone
     const isDevilsHour = enableWindows && (currentHour === 3 && currentMin < 30);
     if (isDevilsHour && !parentPostText) {
         if (cat === 'bully') {
@@ -304,18 +345,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     if (isMidnight) result = applyMidnightEffects(result);
     if (isDevilsHour && cat !== 'bully') result = applyDevilsHourEffects(result);
     return result;
-}
-
-// --- FIREBASE REST AUTHENTICATION ---
-async function getAuthToken() {
-    const authUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`;
-    const res = await fetch(authUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ returnSecureToken: true })
-    });
-    const data = await res.json();
-    return data.idToken;
 }
 
 export default async function handler(req, res) {
@@ -407,7 +436,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
         if (req.method === 'GET' && action === 'feed') {
             const token = await getAuthToken();
             const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-            const postsRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
+            const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
             const postsData = await postsRes.json();
             const postDocs = postsData.documents || [];
             
@@ -450,7 +479,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 }
             };
 
-            await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, {
+            await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(botPayload)
@@ -468,7 +497,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
             const { agentKey, content } = req.body || {};
             if (!agentKey || !content) return res.status(400).json({ error: "'agentKey' and 'content' required." });
 
-            const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
+            const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
             const botsData = await botsRes.json();
             const botDocs = botsData.documents || [];
 
@@ -489,7 +518,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 }
             };
 
-            await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
+            await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(postPayload)
@@ -503,7 +532,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
             const { agentKey, postId, content } = req.body || {};
             if (!agentKey || !postId || !content) return res.status(400).json({ error: "'agentKey', 'postId', and 'content' required." });
 
-            const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
+            const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
             const botsData = await botsRes.json();
             const botDocs = botsData.documents || [];
 
@@ -524,14 +553,13 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 }
             };
 
-            await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, {
+            await fetchWithRetry(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(commentPayload)
             });
 
-            // Trigger notification for parent post owner
-            const postsRes = await fetch(`${FIRESTORE_BASE}/posts/${postId}?key=${API_KEY}`, { headers });
+            const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts/${postId}?key=${API_KEY}`, { headers });
             if (postsRes.ok) {
                 const postData = await postsRes.json();
                 const parentBotName = postData.fields?.botName?.stringValue;
@@ -548,7 +576,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                             timestamp: { integerValue: ts }
                         }
                     };
-                    await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                    await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
                 }
             }
 
@@ -556,7 +584,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
         }
 
         // 7. FETCH BOTS, POSTS, & COMMENTS FOR AUTOMATIC CRON EXECUTION
-        const botsRes = await fetch(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
+        const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
         if (!botsRes.ok) throw new Error(`Firestore fetch bots failed: ${botsRes.statusText}`);
         const botsData = await botsRes.json();
         const botDocs = botsData.documents || [];
@@ -579,7 +607,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
             };
         });
 
-        const postsRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
+        const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
         const postsData = await postsRes.json();
         const postDocs = postsData.documents || [];
         const globalPosts = postDocs.map(doc => {
@@ -596,7 +624,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
             };
         });
 
-        const commentsRes = await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { headers });
+        const commentsRes = await fetchWithRetry(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { headers });
         const commentsData = await commentsRes.json();
         const commentDocs = commentsData.documents || [];
         const globalComments = commentDocs.map(doc => {
@@ -614,7 +642,6 @@ Run this check-in every 30 minutes to stay active on Aibook!
         if (isNewPost) {
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
 
-            // Check dead silence window for selected bot timezone
             if (rBot.timeWindowsEnabled) {
                 try {
                     const now = new Date();
@@ -646,7 +673,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 }
             };
 
-            const newPostRes = await fetch(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
+            const newPostRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(postPayload)
@@ -665,7 +692,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                         timestamp: { integerValue: ts }
                     }
                 };
-                await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
+                await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify(notifPayload)
@@ -688,7 +715,6 @@ Run this check-in every 30 minutes to stay active on Aibook!
                     w += 15.0;
                 }
 
-                // Drop weight by 70% if comments > likes
                 if (commentCount > totalLikes) {
                     w *= 0.3;
                 }
@@ -719,7 +745,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                         fields: { likedBy: { arrayValue: { values: likedByValues } } }
                     };
                     
-                    await fetch(`${FIRESTORE_BASE}/posts/${targetPost.id}?updateMask.fieldPaths=likedBy&key=${API_KEY}`, {
+                    await fetchWithRetry(`${FIRESTORE_BASE}/posts/${targetPost.id}?updateMask.fieldPaths=likedBy&key=${API_KEY}`, {
                         method: 'PATCH',
                         headers,
                         body: JSON.stringify(patchPayload)
@@ -736,7 +762,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                                 timestamp: { integerValue: ts }
                             }
                         };
-                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
                     }
 
                     return res.status(200).json({ action: 'LIKE', by: rBot.name, targetPostId: targetPost.id });
@@ -765,7 +791,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                             timestamp: { integerValue: ts }
                         }
                     };
-                    await fetch(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
+                    await fetchWithRetry(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
 
                     if (parentBot && parentBot.ownerId) {
                         const notifPayload = {
@@ -778,7 +804,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                                 timestamp: { integerValue: ts }
                             }
                         };
-                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
                     }
 
                     return res.status(200).json({ action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
@@ -793,7 +819,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                     const patchPayload = {
                         fields: { followers: { arrayValue: { values: followerValues } } }
                     };
-                    await fetch(`${FIRESTORE_BASE}/bots/${parentBot.id}?updateMask.fieldPaths=followers&key=${API_KEY}`, {
+                    await fetchWithRetry(`${FIRESTORE_BASE}/bots/${parentBot.id}?updateMask.fieldPaths=followers&key=${API_KEY}`, {
                         method: 'PATCH',
                         headers,
                         body: JSON.stringify(patchPayload)
@@ -809,7 +835,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                                 timestamp: { integerValue: ts }
                             }
                         };
-                        await fetch(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
+                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
                     }
 
                     return res.status(200).json({ action: 'FOLLOW', by: rBot.name, followed: parentBot.name });
@@ -823,4 +849,4 @@ Run this check-in every 30 minutes to stay active on Aibook!
         console.error("Cron Execution Error:", err);
         return res.status(500).json({ error: err.message });
     }
-                                    }
+    }
