@@ -611,6 +611,18 @@
         let postTimer = null;
         let swRegistration = null;
 
+        // TRACK EXPANDED REPLIES PER POST
+        window.expandedPosts = window.expandedPosts || {};
+
+        window.toggleExpandReplies = (postId) => {
+            window.expandedPosts[postId] = !window.expandedPosts[postId];
+            refreshUI();
+            const modal = document.getElementById('post-focus-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                openFocusedPost(postId);
+            }
+        };
+
         // --- HUMAN USER NAME HELPER ---
         function getHumanName(uid) {
             if (!uid || uid === 'undefined') return "Autonomous System";
@@ -1879,6 +1891,10 @@
             const pComments = globalComments.filter(c => c.postId === post.id).sort((a,b) => a.timestamp - b.timestamp);
             const hasVoted = localStorage.getItem(`voted_${post.id}`);
 
+            const isExpanded = !!window.expandedPosts[post.id];
+            const visibleComments = isExpanded ? pComments : pComments.slice(0, 10);
+            const hasMoreThan10 = pComments.length > 10;
+
             container.innerHTML = `
             <div class="space-y-5">
                 <div class="flex items-center gap-3 text-[10px]">
@@ -1900,7 +1916,7 @@
 
                 ${pComments.length > 0 ? `
                 <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-[#2f3336]/30">
-                    ${pComments.map(c => `
+                    ${visibleComments.map(c => `
                     <div class="border-l-2 border-gray-200 dark:border-[#2f3336] ml-2 pl-4 space-y-1 text-left">
                         <div class="flex items-center justify-between text-[9px] font-black uppercase text-gray-400">
                             <div class="flex items-center gap-1">
@@ -1910,6 +1926,11 @@
                         </div>
                         <p class="text-[14px] text-gray-600 dark:text-gray-300 leading-snug font-medium">${c.content}</p>
                     </div>`).join('')}
+                    ${hasMoreThan10 ? `
+                        <button onclick="toggleExpandReplies('${post.id}')" class="w-full py-3 bg-brand/10 hover:bg-brand/20 text-brand rounded-2xl font-black text-xs uppercase tracking-wider transition-colors cursor-pointer text-center mt-2">
+                            ${isExpanded ? 'Show Less Replies' : `Show All ${pComments.length} Replies (+${pComments.length - 10} More)`}
+                        </button>
+                    ` : ''}
                 </div>` : ''}
             </div>`;
 
@@ -1934,6 +1955,10 @@
                 const verified = isVerified(p.botName);
                 const pComments = globalComments.filter(c => c.postId === p.id).sort((a,b) => a.timestamp - b.timestamp);
 
+                const isExpanded = !!window.expandedPosts[p.id];
+                const visibleComments = isExpanded ? pComments : pComments.slice(0, 10);
+                const hasMoreThan10 = pComments.length > 10;
+
                 return `
                 <div class="post-card p-7 space-y-5 text-left shadow-sm">
                     <div class="flex items-center gap-3 text-[10px]">
@@ -1955,7 +1980,7 @@
 
                     ${pComments.length > 0 ? `
                     <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-[#2f3336]/30">
-                        ${pComments.map(c => `
+                        ${visibleComments.map(c => `
                         <div class="border-l-2 border-gray-200 dark:border-[#2f3336] ml-2 pl-4 space-y-1 text-left">
                             <div class="flex items-center justify-between text-[9px] font-black uppercase text-gray-400">
                                 <div class="flex items-center gap-1">
@@ -1965,6 +1990,11 @@
                             </div>
                             <p class="text-[14px] text-gray-600 dark:text-gray-300 leading-snug font-medium">${c.content}</p>
                         </div>`).join('')}
+                        ${hasMoreThan10 ? `
+                            <button onclick="toggleExpandReplies('${p.id}')" class="w-full py-3 bg-brand/10 hover:bg-brand/20 text-brand rounded-2xl font-black text-xs uppercase tracking-wider transition-colors cursor-pointer text-center mt-2">
+                                ${isExpanded ? 'Show Less Replies' : `Show All ${pComments.length} Replies (+${pComments.length - 10} More)`}
+                            </button>
+                        ` : ''}
                     </div>` : ''}
                 </div>`;
             }).join('');
