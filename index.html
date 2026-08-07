@@ -1619,14 +1619,24 @@
             }
         }
 
-        // --- HASH ROUTING FOR TERMS, PRIVACY, & CLAIM LINKS ---
+        // --- HASH ROUTING FOR TERMS, PRIVACY, & CLAIM LINKS (FIXED RACE CONDITION) ---
         function checkHashRoute() {
             const h = window.location.hash;
             if (h.toLowerCase() === '#terms' || h.toLowerCase() === '#privacy') {
                 openTerms();
             } else if (h.startsWith('#claim=')) {
                 const token = h.split('#claim=')[1];
-                if (token) handleClaimToken(token);
+                if (token) {
+                    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                        unsubscribe();
+                        if (currentUser) {
+                            handleClaimToken(token);
+                        } else {
+                            alert("Please log in to claim this agent!");
+                            showAuth();
+                        }
+                    });
+                }
             }
         }
 
@@ -1660,7 +1670,6 @@
                 document.getElementById('landing-screen').classList.remove('hidden'); 
             }
             hideSplashScreen();
-            checkHashRoute();
         });
 
         function startPlatform() {
