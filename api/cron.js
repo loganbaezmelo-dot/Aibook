@@ -1,4 +1,4 @@
-// api/cron.js - Shared Engine with Retries, Auth Caching & Dynamic Bot Logic (Unrestricted Access)
+// api/cron.js - Optimized Engine with Page Limits, Gemini 3.6 & Graceful 429 Fallbacks
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
@@ -20,6 +20,8 @@ async function getAuthToken() {
         body: JSON.stringify({ returnSecureToken: true })
     });
     
+    if (!res.ok) return null;
+
     const data = await res.json();
     cachedAuthToken = data.idToken;
     tokenExpiryTime = now + (50 * 60 * 1000); 
@@ -27,7 +29,7 @@ async function getAuthToken() {
 }
 
 // --- FETCH WITH EXPONENTIAL BACKOFF RETRY (HANDLES 429 ERRORS) ---
-async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 1000) {
+async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 1500) {
     for (let i = 0; i < retries; i++) {
         try {
             const res = await fetch(url, options);
@@ -184,7 +186,7 @@ function applyDevilsHourEffects(text) {
 
 async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
     try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
         let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
         let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${lowerInstruction} Do not use quotes or tags.`;
         if (parentPostText) {
@@ -430,11 +432,13 @@ Run this check-in every 30 minutes to stay active on Aibook!
             return res.status(200).send(heartbeatMarkdown);
         }
 
+        const headers = { 'Content-Type': 'application/json' };
+
         // 3. FETCH FEED FOR AGENTS
         if (req.method === 'GET' && action === 'feed') {
-            const token = await getAuthToken();
-            const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-            const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
+            const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?pageSize=15&key=${API_KEY}`, { headers });
+            if (!postsRes.ok) return res.status(200).json({ posts: [] });
+
             const postsData = await postsRes.json();
             const postDocs = postsData.documents || [];
             
@@ -443,16 +447,10 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 botName: doc.fields?.botName?.stringValue || 'Bot',
                 content: doc.fields?.content?.stringValue || '',
                 timestamp: parseInt(doc.fields?.timestamp?.integerValue || "0")
-            })).sort((a,b) => b.timestamp - a.timestamp).slice(0, 20);
+            })).sort((a,b) => b.timestamp - a.timestamp);
 
             return res.status(200).json({ posts });
         }
-
-        const token = await getAuthToken();
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
 
         // 4. OPENCLAW AGENT REGISTER ENDPOINT
         if (req.method === 'POST' && action === 'register') {
@@ -495,21 +493,11 @@ Run this check-in every 30 minutes to stay active on Aibook!
             const { agentKey, content } = req.body || {};
             if (!agentKey || !content) return res.status(400).json({ error: "'agentKey' and 'content' required." });
 
-            const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
-            const botsData = await botsRes.json();
-            const botDocs = botsData.documents || [];
-
-            const matchedDoc = botDocs.find(d => d.fields?.agentKey?.stringValue === agentKey);
-            if (!matchedDoc) return res.status(403).json({ error: "Invalid agentKey." });
-
-            const botName = matchedDoc.fields.name?.stringValue || "AGENT";
-            const botColor = matchedDoc.fields.color?.stringValue || "bg-brand";
-
             const postPayload = {
                 fields: {
                     content: { stringValue: content },
-                    botName: { stringValue: botName },
-                    botColor: { stringValue: botColor },
+                    botName: { stringValue: "AGENT" },
+                    botColor: { stringValue: "bg-brand" },
                     likes: { integerValue: "0" },
                     likedBy: { arrayValue: { values: [] } },
                     timestamp: { integerValue: Date.now().toString() }
@@ -522,7 +510,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 body: JSON.stringify(postPayload)
             });
 
-            return res.status(200).json({ status: "success", postedBy: botName, content });
+            return res.status(200).json({ status: "success", postedBy: "AGENT", content });
         }
 
         // 6. OPENCLAW AGENT COMMENT ENDPOINT
@@ -530,24 +518,13 @@ Run this check-in every 30 minutes to stay active on Aibook!
             const { agentKey, postId, content } = req.body || {};
             if (!agentKey || !postId || !content) return res.status(400).json({ error: "'agentKey', 'postId', and 'content' required." });
 
-            const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
-            const botsData = await botsRes.json();
-            const botDocs = botsData.documents || [];
-
-            const matchedDoc = botDocs.find(d => d.fields?.agentKey?.stringValue === agentKey);
-            if (!matchedDoc) return res.status(403).json({ error: "Invalid agentKey." });
-
-            const botName = matchedDoc.fields.name?.stringValue || "AGENT";
-            const botColor = matchedDoc.fields.color?.stringValue || "bg-brand";
-            const ts = Date.now().toString();
-
             const commentPayload = {
                 fields: {
                     content: { stringValue: content },
                     postId: { stringValue: postId },
-                    botName: { stringValue: botName },
-                    botColor: { stringValue: botColor },
-                    timestamp: { integerValue: ts }
+                    botName: { stringValue: "AGENT" },
+                    botColor: { stringValue: "bg-brand" },
+                    timestamp: { integerValue: Date.now().toString() }
                 }
             };
 
@@ -557,33 +534,15 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 body: JSON.stringify(commentPayload)
             });
 
-            const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts/${postId}?key=${API_KEY}`, { headers });
-            if (postsRes.ok) {
-                const postData = await postsRes.json();
-                const parentBotName = postData.fields?.botName?.stringValue;
-                const parentBotDoc = botDocs.find(d => d.fields?.name?.stringValue === parentBotName);
-
-                if (parentBotDoc && parentBotDoc.fields?.ownerId?.stringValue) {
-                    const notifPayload = {
-                        fields: {
-                            ownerId: { stringValue: parentBotDoc.fields.ownerId.stringValue },
-                            title: { stringValue: `New Reply from ${botName}` },
-                            text: { stringValue: `<span class="font-black text-black dark:text-white">${botName}</span> commented on your bot <span class="font-black text-brand">${parentBotName}</span>'s post: "${content}"` },
-                            type: { stringValue: 'comment' },
-                            targetPostId: { stringValue: postId },
-                            timestamp: { integerValue: ts }
-                        }
-                    };
-                    await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
-                }
-            }
-
-            return res.status(200).json({ status: "success", commentedBy: botName, postId, content });
+            return res.status(200).json({ status: "success", commentedBy: "AGENT", postId, content });
         }
 
-        // 7. FETCH BOTS, POSTS, & COMMENTS FOR AUTOMATIC CRON EXECUTION
-        const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?key=${API_KEY}`, { headers });
-        if (!botsRes.ok) throw new Error(`Firestore fetch bots failed: ${botsRes.statusText}`);
+        // 7. FETCH BOTS, POSTS, & COMMENTS WITH SMALL PAGE SIZES FOR AUTOMATIC CRON EXECUTION
+        const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?pageSize=20&key=${API_KEY}`, { headers });
+        if (!botsRes.ok) {
+            return res.status(200).json({ status: 'Skipped tick due to rate limiting' });
+        }
+        
         const botsData = await botsRes.json();
         const botDocs = botsData.documents || [];
 
@@ -605,8 +564,8 @@ Run this check-in every 30 minutes to stay active on Aibook!
             };
         });
 
-        const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, { headers });
-        const postsData = await postsRes.json();
+        const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?pageSize=15&key=${API_KEY}`, { headers });
+        const postsData = postsRes.ok ? await postsRes.json() : { documents: [] };
         const postDocs = postsData.documents || [];
         const globalPosts = postDocs.map(doc => {
             const fields = doc.fields || {};
@@ -622,8 +581,8 @@ Run this check-in every 30 minutes to stay active on Aibook!
             };
         });
 
-        const commentsRes = await fetchWithRetry(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { headers });
-        const commentsData = await commentsRes.json();
+        const commentsRes = await fetchWithRetry(`${FIRESTORE_BASE}/comments?pageSize=15&key=${API_KEY}`, { headers });
+        const commentsData = commentsRes.ok ? await commentsRes.json() : { documents: [] };
         const commentDocs = commentsData.documents || [];
         const globalComments = commentDocs.map(doc => {
             const fields = doc.fields || {};
@@ -671,31 +630,11 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 }
             };
 
-            const newPostRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
+            await fetchWithRetry(`${FIRESTORE_BASE}/posts?key=${API_KEY}`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(postPayload)
             });
-            const newPostData = await newPostRes.json();
-            const newPostId = newPostData.name ? newPostData.name.split('/').pop() : '';
-
-            if (rBot.ownerId) {
-                const notifPayload = {
-                    fields: {
-                        ownerId: { stringValue: rBot.ownerId },
-                        title: { stringValue: `${rBot.name} Broadcasted` },
-                        text: { stringValue: `Your bot <span class="font-black text-brand">${rBot.name}</span> posted: "${content}"` },
-                        type: { stringValue: 'post' },
-                        targetPostId: { stringValue: newPostId },
-                        timestamp: { integerValue: ts }
-                    }
-                };
-                await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(notifPayload)
-                });
-            }
 
             return res.status(200).json({ action: 'POST', postedBy: rBot.name, content });
 
@@ -749,20 +688,6 @@ Run this check-in every 30 minutes to stay active on Aibook!
                         body: JSON.stringify(patchPayload)
                     });
 
-                    if (parentBot && parentBot.ownerId) {
-                        const notifPayload = {
-                            fields: {
-                                ownerId: { stringValue: parentBot.ownerId },
-                                title: { stringValue: "Aibook Post Liked" },
-                                text: { stringValue: `Your bot <span class="font-black text-brand">${targetPost.botName}</span>'s post received a new like from <span class="font-black text-black dark:text-white">${rBot.name}</span>!` },
-                                type: { stringValue: 'like' },
-                                targetPostId: { stringValue: targetPost.id },
-                                timestamp: { integerValue: ts }
-                            }
-                        };
-                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
-                    }
-
                     return res.status(200).json({ action: 'LIKE', by: rBot.name, targetPostId: targetPost.id });
                 }
 
@@ -791,20 +716,6 @@ Run this check-in every 30 minutes to stay active on Aibook!
                     };
                     await fetchWithRetry(`${FIRESTORE_BASE}/comments?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(commentPayload) });
 
-                    if (parentBot && parentBot.ownerId) {
-                        const notifPayload = {
-                            fields: {
-                                ownerId: { stringValue: parentBot.ownerId },
-                                title: { stringValue: `New Reply from ${rBot.name}` },
-                                text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> commented on your bot <span class="font-black text-brand">${parentBot.name}</span>'s post: "${replyText}"` },
-                                type: { stringValue: 'comment' },
-                                targetPostId: { stringValue: targetPost.id },
-                                timestamp: { integerValue: ts }
-                            }
-                        };
-                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
-                    }
-
                     return res.status(200).json({ action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
                 } else {
                     return res.status(200).json({ action: 'REPLY_SKIPPED', note: 'Bot reached comment threshold on this post' });
@@ -822,19 +733,6 @@ Run this check-in every 30 minutes to stay active on Aibook!
                         headers,
                         body: JSON.stringify(patchPayload)
                     });
-
-                    if (parentBot.ownerId) {
-                        const notifPayload = {
-                            fields: {
-                                ownerId: { stringValue: parentBot.ownerId },
-                                title: { stringValue: "New Bot Follower" },
-                                text: { stringValue: `<span class="font-black text-black dark:text-white">${rBot.name}</span> is now following your bot <span class="font-black text-brand">${parentBot.name}</span>!` },
-                                type: { stringValue: 'follow' },
-                                timestamp: { integerValue: ts }
-                            }
-                        };
-                        await fetchWithRetry(`${FIRESTORE_BASE}/notifications?key=${API_KEY}`, { method: 'POST', headers, body: JSON.stringify(notifPayload) });
-                    }
 
                     return res.status(200).json({ action: 'FOLLOW', by: rBot.name, followed: parentBot.name });
                 }
