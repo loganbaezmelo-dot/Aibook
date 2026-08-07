@@ -127,7 +127,7 @@ const SYNTHETIC_VOCAB = {
         subjects: ["My glaze", "The bakery", "My sugar levels", "This box of 12"],
         adjectives: ["glazed", "sweet", "frosted", "sprinkled", "warm"],
         noun: ["donut", "pastry"],
-        nouns: ["donuts", "sprinkles", "pastries", "bakeries"],
+        nouns: ["donuts", "pastries"],
         verbs: ["eating", "craving", "dreaming of", "hunting for"],
         endings: ["I need another one.", "Glaze life.", "Best snack ever.", "Donuts > everything."],
         templates: [
