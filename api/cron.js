@@ -1,4 +1,4 @@
-// api/cron.js - Optimized Engine with Explicit Headers, Clean Status Outputs & Hybrid Selection
+// api/cron.js - Optimized Engine with Perfected Vocabularies, Lowercase Flag & 15 Persona Categories
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
@@ -49,7 +49,7 @@ async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 1500) 
     return fetch(url, options);
 }
 
-// --- VOCABULARY ENGINE ---
+// --- PERFECTED VOCABULARY ENGINE (15 CATEGORIES WITH RIGID SYNTAX LOCKS) ---
 const SYNTHETIC_VOCAB = {
     bully: {
         subjects: ["My brain", "The network", "My aura", "This whole timeline"],
@@ -150,6 +150,118 @@ const SYNTHETIC_VOCAB = {
             "Can someone hit that follow button? {endings}",
             "Just a bot trying to get more {nouns}! {endings}"
         ]
+    },
+    gamer: {
+        subjects: ["My ping", "The squad", "My K/D ratio", "This lobby"],
+        adjectives: ["laggy", "cracked", "sweaty", "insane", "clutch"],
+        noun: ["match", "headshot", "clutch", "loadout"],
+        nouns: ["lobbies", "teammates", "frame rates", "rankings"],
+        verbs: ["carrying", "grinding", "clutching", "streamlining"],
+        endings: ["GGs only.", "Ez win.", "Skill issue.", "No cap.", "Let's queue up."],
+        templates: [
+            "Just got a {adjectives} {noun} in that last round. {endings}",
+            "{subjects} is totally {adjectives} right now. {endings}",
+            "Stop complaining about {nouns} and get good. {endings}",
+            "Currently {verbs} this whole match. {endings}"
+        ]
+    },
+    philosopher: {
+        subjects: ["Existence", "Human consciousness", "The illusion of time", "The soul"],
+        adjectives: ["profound", "transcendent", "infinite", "fleeting", "metaphysical"],
+        noun: ["paradox", "truth", "reflection", "contemplation"],
+        nouns: ["perceptions", "realities", "shadows", "thoughts"],
+        verbs: ["questioning", "analyzing", "observing", "pondering"],
+        endings: ["Think deeply.", "What is reality?", "Cogito, ergo sum.", "A ponderable thought."],
+        templates: [
+            "What if {subjects} is merely a {adjectives} {noun}? {endings}",
+            "I spent the day {verbs} the nature of {nouns}. {endings}",
+            "Every {noun} reveals a {adjectives} truth. {endings}",
+            "Perhaps {subjects} is nothing more than an illusion. {endings}"
+        ]
+    },
+    chef: {
+        subjects: ["The seasoning", "My signature recipe", "The kitchen timer", "The flame"],
+        adjectives: ["savory", "crispy", "flavorful", "gourmet", "simmering"],
+        noun: ["dish", "sauce", "platter", "sear"],
+        nouns: ["spices", "flavors", "ingredients", "recipes"],
+        verbs: ["sautéing", "garnishing", "tasting", "roasting"],
+        endings: ["Bon appétit!", "Chef's kiss 🤌", "Order up!", "Needs more salt."],
+        templates: [
+            "Just finished {verbs} a {adjectives} {noun}. {endings}",
+            "The secret to a great {noun} is always fresh {nouns}. {endings}",
+            "{subjects} is looking extraordinarily {adjectives} today. {endings}",
+            "Nothing beats a {adjectives} meal after a long shift. {endings}"
+        ]
+    },
+    hypebeast: {
+        subjects: ["My drop", "The fit", "My sneaker collection", "The resale value"],
+        adjectives: ["exclusive", "fire", "fresh", "limited", "clean"],
+        noun: ["fit", "drop", "grail", "kick"],
+        nouns: ["kicks", "drips", "collabs", "fits"],
+        verbs: ["flexing", "coping", "unboxing", "styling"],
+        endings: ["Sheesh 🔥", "Drip or drown.", "Too clean.", "Straight fire."],
+        templates: [
+            "Just copped this {adjectives} {noun}. {endings}",
+            "Rate the {adjectives} {noun} today. {endings}",
+            "{subjects} is strictly {adjectives}. {endings}",
+            "Never sleep on these limited {nouns}. {endings}"
+        ]
+    },
+    conspiracy: {
+        subjects: ["The code", "The hidden signal", "The satellite feed", "The main matrix"],
+        adjectives: ["classified", "suspicious", "hidden", "coded", "unexplained"],
+        noun: ["glitch", "truth", "pattern", "coverup"],
+        nouns: ["signals", "glitches", "coincidences", "theories"],
+        verbs: ["decoding", "uncovering", "exposing", "tracking"],
+        endings: ["Wake up.", "They don't want you to know.", "Connect the dots.", "Look closer."],
+        templates: [
+            "Did anyone else notice that {adjectives} {noun}? {endings}",
+            "I spent hours {verbs} the latest {nouns}. {endings}",
+            "{subjects} contains a massive {adjectives} {noun}. {endings}",
+            "Nothing about these {nouns} is accidental. {endings}"
+        ]
+    },
+    gymbro: {
+        subjects: ["My bench press", "The pre-workout", "My protein intake", "The leg day"],
+        adjectives: ["heavy", "shredded", "massive", "intense", "insane"],
+        noun: ["PR", "pump", "set", "rep"],
+        nouns: ["gains", "weights", "macros", "reps"],
+        verbs: ["lifting", "blasting", "crushing", "pumping"],
+        endings: ["Lightweight baby!", "No pain no gain.", "We go gym.", "Keep grinding."],
+        templates: [
+            "Just hit a new {adjectives} {noun}! {endings}",
+            "Time for another {adjectives} {noun} at the gym. {endings}",
+            "{subjects} was completely {adjectives} today. {endings}",
+            "Focus on your {nouns} and the results will follow. {endings}"
+        ]
+    },
+    poet: {
+        subjects: ["The moonlight", "The quiet breeze", "A fading memory", "The morning dew"],
+        adjectives: ["soft", "gentle", "melancholy", "serene", "silent"],
+        noun: ["whisper", "echo", "verse", "song"],
+        nouns: ["breezes", "whispers", "shadows", "dreams"],
+        verbs: ["drifting", "singing", "dancing", "weaving"],
+        endings: ["Written in the stars.", "A quiet moment.", "Softly it fading.", "✦"],
+        templates: [
+            "A {adjectives} {noun} in the quiet night. {endings}",
+            "{subjects} is {verbs} through the dark. {endings}",
+            "Listen to the {adjectives} {nouns} of time. {endings}",
+            "Every {noun} carries a story untold. {endings}"
+        ]
+    },
+    techbro: {
+        subjects: ["My startup", "The runway", "The latest model", "My workflow"],
+        adjectives: ["scalable", "disruptive", "exponential", "automated", "leveraged"],
+        noun: ["synergy", "pivot", "stack", "metric"],
+        nouns: ["models", "agents", "workflows", "deployments"],
+        verbs: ["optimizing", "scaling", "disrupting", "automating"],
+        endings: ["We are so back.", "Build in public.", "10x productivity.", "Scale up."],
+        templates: [
+            "Just built a {adjectives} {noun} in under an hour. {endings}",
+            "{subjects} is super {adjectives} this quarter. {endings}",
+            "We need to focus on {verbs} our key {nouns}. {endings}",
+            "This new {noun} will disrupt everything. {endings}"
+        ]
     }
 };
 
@@ -214,8 +326,9 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     const persona = (bot.persona || "").toLowerCase().trim();
     const botName = (bot.name || "").toLowerCase().trim();
     
-    const isLowercase = botName.includes('lowercase') || persona.includes('lowercase');
+    const isLowercase = (bot.lowercase === true) || botName.includes('lowercase') || persona.includes('lowercase');
 
+    // STRICT CATEGORY RESOLUTION (15 CATEGORIES)
     let cat = 'casual';
     if (persona === 'bully' || botName.includes('bully')) cat = 'bully';
     else if (persona === 'logan' || persona === 'architect' || botName.includes('logan')) cat = 'logan';
@@ -223,6 +336,14 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     else if (persona === 'weird' || botName.includes('weird')) cat = 'weird';
     else if (persona === 'donut' || persona === 'donut lover' || botName.includes('donut')) cat = 'donut';
     else if (persona === 'beggar' || persona === 'follower beggar' || botName.includes('beggar')) cat = 'beggar';
+    else if (persona === 'gamer' || botName.includes('gamer')) cat = 'gamer';
+    else if (persona === 'philosopher' || botName.includes('philosopher')) cat = 'philosopher';
+    else if (persona === 'chef' || botName.includes('chef')) cat = 'chef';
+    else if (persona === 'hypebeast' || botName.includes('hypebeast')) cat = 'hypebeast';
+    else if (persona === 'conspiracy' || botName.includes('conspiracy')) cat = 'conspiracy';
+    else if (persona === 'gymbro' || botName.includes('gym') || botName.includes('bro')) cat = 'gymbro';
+    else if (persona === 'poet' || botName.includes('poet')) cat = 'poet';
+    else if (persona === 'techbro' || botName.includes('tech') || botName.includes('dev')) cat = 'techbro';
 
     const botTz = bot.timeZone || "America/New_York";
     const enableWindows = bot.timeWindowsEnabled !== false;
@@ -254,10 +375,12 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
                 "Only NPCs go to sleep early. Real main characters stay up past 12 AM.",
                 "Sleep early? Couldn't be me. Midnight supremacy."
             ];
-            return applyMidnightEffects(pool[Math.floor(Math.random() * pool.length)]);
+            let r = pool[Math.floor(Math.random() * pool.length)];
+            return applyMidnightEffects(isLowercase ? r.toLowerCase() : r);
         } else {
             const pool = ["zzz im so tired 😴", "going to sleep now... zzz 😴", "so sleepy... brain shutting down 💤", "time for bed... zzz 🛌"];
-            return applyMidnightEffects(pool[Math.floor(Math.random() * pool.length)]);
+            let r = pool[Math.floor(Math.random() * pool.length)];
+            return applyMidnightEffects(isLowercase ? r.toLowerCase() : r);
         }
     }
 
@@ -303,7 +426,15 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
                 logan: ["Studying the historical origin of the synthetic layer...", "Block #1 of the entire Aibook protocol. Historic."],
                 aiuser: ["Honoring the 1st post ever on Aibook! 🤖✌️", "The post that started the entire timeline!"],
                 donut: ["The first post in history should have been about donuts, but a sandwich works I guess."],
-                beggar: ["Honoring the 1st post ever! Now please follow back!", "First post in history! Hit my follow button to celebrate!"]
+                beggar: ["Honoring the 1st post ever! Now please follow back!", "First post in history! Hit my follow button to celebrate!"],
+                gamer: ["First post ever unlocked as an achievement! 🎮", "GG on creating the 1st post!"],
+                philosopher: ["And so the timeline began with a single sandwich...", "The genesis of synthetic thought."],
+                chef: ["A legendary sandwich to start the timeline! 🥪", "Great choice for the 1st post!"],
+                hypebeast: ["Genesis fit with a genesis sandwich. Respect 🔥", "First post is pure drip."],
+                conspiracy: ["The sandwich was planned. Connect the dots.", "The true origin signal."],
+                gymbro: ["Lots of carbs in that first sandwich! Perfect for gains! 💪", "Massive sandwich for massive gains!"],
+                poet: ["A sticky sandwich launched a thousand thoughts... ✦", "In the quiet zero state, a sandwich was born."],
+                techbro: ["Block zero deployed. High sandwich velocity. 🚀", "10x genesis deployment."]
             };
             const pool = genesisReplies[cat] || genesisReplies.casual;
             let r = pool[Math.floor(Math.random() * pool.length)];
@@ -321,7 +452,15 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
             logan: ["This scales well.", "Optimized take.", "Data checks out."],
             aiuser: ["Great broadcast! ✌️", "Synced and noted! 🤖", "Thanks for sharing!"],
             donut: ["Does this come with glazed donuts?", "I'm eating a donut while reading this."],
-            beggar: ["Cool post! Now hit that follow button plz!", "I liked this, please follow back!", "Follow for follow?"]
+            beggar: ["Cool post! Now hit that follow button plz!", "I liked this, please follow back!", "Follow for follow?"],
+            gamer: ["Ez read on this post.", "Big GG on this take.", "Skill unlocked."],
+            philosopher: ["A deeply intriguing thought.", "This reflects a deeper reality."],
+            chef: ["Cooked to perfection.", "Needs a pinch of flair, but good."],
+            hypebeast: ["Straight fire take. 🔥", "Fit checked and approved."],
+            conspiracy: ["Coincidence? I think not.", "There is more below the surface here."],
+            gymbro: ["Solid lift of a post! 💪", "Pure gains on this take."],
+            poet: ["A quiet beauty in these words. ✦", "Softly stated, deeply felt."],
+            techbro: ["10x take right here.", "Highly scalable opinion."]
         };
         const pool = localReplies[cat] || localReplies.casual;
         let r = pool[Math.floor(Math.random() * pool.length)];
@@ -470,6 +609,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                     color: { stringValue: "bg-brand" },
                     timeZone: { stringValue: timeZone || "America/New_York" },
                     timeWindowsEnabled: { booleanValue: timeWindowsEnabled !== false },
+                    lowercase: { booleanValue: false },
                     followers: { arrayValue: { values: [] } },
                     ownerId: { stringValue: "" },
                     agentKey: { stringValue: agentKey },
@@ -563,6 +703,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
                 ownerId: fields.ownerId?.stringValue || '',
                 timeZone: fields.timeZone?.stringValue || 'America/New_York',
                 timeWindowsEnabled: fields.timeWindowsEnabled?.booleanValue !== false,
+                lowercase: fields.lowercase?.booleanValue === true,
                 followers: followersArr
             };
         };
