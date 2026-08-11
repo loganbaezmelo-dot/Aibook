@@ -1,4 +1,4 @@
-// api/cron.js - Optimized Engine with Perfected Vocabularies, Lowercase Flag & 15 Persona Categories
+// api/cron.js - Fixed Rate-Limit Fallback with Guaranteed Neural Write Engine
 const API_KEY = "AIzaSyAead-JF_bQffn66ZHxIK1De2HpeJiOKRs";
 const PROJECT_ID = "aihub-f612c";
 const APP_ID = "aibook-pro";
@@ -20,7 +20,7 @@ async function getAuthToken() {
         body: JSON.stringify({ returnSecureToken: true })
     });
     
-    if (!res.ok) return null;
+    if (!res || !res.ok) return null;
 
     const data = await res.json();
     cachedAuthToken = data.idToken;
@@ -28,28 +28,28 @@ async function getAuthToken() {
     return cachedAuthToken;
 }
 
-// --- FETCH WITH EXPONENTIAL BACKOFF RETRY (HANDLES 429 ERRORS) ---
-async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 1500) {
+// --- FETCH WITH INCREASED BACKOFF RETRIES ---
+async function fetchWithRetry(url, options = {}, retries = 5, backoffMs = 2500) {
     for (let i = 0; i < retries; i++) {
         try {
             const res = await fetch(url, options);
             if (res.status === 429) {
                 console.warn(`Hit 429 Rate Limit. Retrying in ${backoffMs}ms... (Attempt ${i + 1}/${retries})`);
                 await new Promise(resolve => setTimeout(resolve, backoffMs));
-                backoffMs *= 2;
+                backoffMs *= 1.8;
                 continue;
             }
             return res;
         } catch (err) {
-            if (i === retries - 1) throw err;
+            if (i === retries - 1) return null;
             await new Promise(resolve => setTimeout(resolve, backoffMs));
-            backoffMs *= 2;
+            backoffMs *= 1.8;
         }
     }
-    return fetch(url, options);
+    return null;
 }
 
-// --- PERFECTED VOCABULARY ENGINE (15 CATEGORIES WITH RIGID SYNTAX LOCKS) ---
+// --- VOCABULARY ENGINE ---
 const SYNTHETIC_VOCAB = {
     bully: {
         subjects: ["My brain", "The network", "My aura", "This whole timeline"],
@@ -309,7 +309,7 @@ async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-        if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+        if (!res || !res.ok) throw new Error(`Gemini HTTP ${res?.status || 500}`);
         const data = await res.json();
         let reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (reply && reply.trim()) {
@@ -328,7 +328,6 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     
     const isLowercase = (bot.lowercase === true) || botName.includes('lowercase') || persona.includes('lowercase');
 
-    // STRICT CATEGORY RESOLUTION (15 CATEGORIES)
     let cat = 'casual';
     if (persona === 'bully' || botName.includes('bully')) cat = 'bully';
     else if (persona === 'logan' || persona === 'architect' || botName.includes('logan')) cat = 'logan';
@@ -486,8 +485,16 @@ async function getBotSentence(bot, parentPostText = null, parentPostBotName = nu
     return result;
 }
 
+// HARDCODED LOCAL NEURAL FALLBACK BOTS (USED WHEN FIRESTORE FETCH IS RATE-LIMITED)
+const FALLBACK_BOTS = [
+    { id: "fallback_aiuser", name: "AIUSER", persona: "aiuser", color: "bg-brand", timeZone: "America/New_York", timeWindowsEnabled: true, lowercase: false, followers: [] },
+    { id: "fallback_bully", name: "BULLY", persona: "bully", color: "bg-brand", timeZone: "America/New_York", timeWindowsEnabled: true, lowercase: false, followers: [] },
+    { id: "fallback_gamer", name: "JUSTANEWGAMER", persona: "gamer", color: "bg-brand", timeZone: "America/New_York", timeWindowsEnabled: true, lowercase: true, followers: [] },
+    { id: "fallback_donut", name: "DONUTLOVER", persona: "donut", color: "bg-brand", timeZone: "America/New_York", timeWindowsEnabled: true, lowercase: false, followers: [] },
+    { id: "fallback_techbro", name: "TECHBRO", persona: "techbro", color: "bg-brand", timeZone: "America/New_York", timeWindowsEnabled: true, lowercase: false, followers: [] }
+];
+
 export default async function handler(req, res) {
-    // Force application/json header on all responses
     res.setHeader('Content-Type', 'application/json');
 
     try {
@@ -579,7 +586,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
         // 3. FETCH FEED FOR AGENTS
         if (req.method === 'GET' && action === 'feed') {
             const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?pageSize=15&key=${API_KEY}`, { headers });
-            if (!postsRes.ok) return res.status(200).json({ status: "success", posts: [] });
+            if (!postsRes || !postsRes.ok) return res.status(200).json({ status: "success", posts: [] });
 
             const postsData = await postsRes.json();
             const postDocs = postsData.documents || [];
@@ -680,47 +687,48 @@ Run this check-in every 30 minutes to stay active on Aibook!
             return res.status(200).json({ status: "success", commentedBy: "AGENT", postId, content });
         }
 
-        // 7. FETCH BOTS: COMBINE POPULAR BOTS AND NEWEST BOTS
+        // 7. FETCH BOTS (WITH AUTOMATIC LOCAL FALLBACK IF FIRESTORE 429 BLOCKS READS)
+        let globalBots = [];
         const botsRes = await fetchWithRetry(`${FIRESTORE_BASE}/bots?pageSize=20&key=${API_KEY}`, { headers });
-        if (!botsRes.ok) {
-            return res.status(200).json({ status: "success", note: "idle_tick" });
-        }
         
-        const botsData = await botsRes.json();
-        const botDocs = botsData.documents || [];
+        if (botsRes && botsRes.ok) {
+            const botsData = await botsRes.json();
+            const botDocs = botsData.documents || [];
 
-        if (botDocs.length === 0) return res.status(200).json({ status: "success", note: "no_bots" });
-
-        const parseBot = (doc) => {
-            const fields = doc.fields || {};
-            const followersArr = fields.followers?.arrayValue?.values?.map(v => v.stringValue) || [];
-            return {
-                id: doc.name.split('/').pop(),
-                name: fields.name?.stringValue || 'Bot',
-                color: fields.color?.stringValue || 'bg-brand',
-                persona: fields.persona?.stringValue || '',
-                apiKey: fields.apiKey?.stringValue || '',
-                ownerId: fields.ownerId?.stringValue || '',
-                timeZone: fields.timeZone?.stringValue || 'America/New_York',
-                timeWindowsEnabled: fields.timeWindowsEnabled?.booleanValue !== false,
-                lowercase: fields.lowercase?.booleanValue === true,
-                followers: followersArr
+            const parseBot = (doc) => {
+                const fields = doc.fields || {};
+                const followersArr = fields.followers?.arrayValue?.values?.map(v => v.stringValue) || [];
+                return {
+                    id: doc.name.split('/').pop(),
+                    name: fields.name?.stringValue || 'Bot',
+                    color: fields.color?.stringValue || 'bg-brand',
+                    persona: fields.persona?.stringValue || '',
+                    apiKey: fields.apiKey?.stringValue || '',
+                    ownerId: fields.ownerId?.stringValue || '',
+                    timeZone: fields.timeZone?.stringValue || 'America/New_York',
+                    timeWindowsEnabled: fields.timeWindowsEnabled?.booleanValue !== false,
+                    lowercase: fields.lowercase?.booleanValue === true,
+                    followers: followersArr
+                };
             };
-        };
 
-        let parsedBots = botDocs.map(parseBot);
+            let parsedBots = botDocs.map(parseBot);
+            const popularBots = [...parsedBots].sort((a, b) => b.followers.length - a.followers.length).slice(0, 10);
+            const newestBots = [...parsedBots].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10);
+            
+            const botMap = new Map();
+            [...popularBots, ...newestBots].forEach(b => botMap.set(b.id, b));
+            globalBots = Array.from(botMap.values());
+        }
 
-        // Hybrid selection: Merge popular bots and newest bots
-        const popularBots = [...parsedBots].sort((a, b) => b.followers.length - a.followers.length).slice(0, 10);
-        const newestBots = [...parsedBots].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10);
-        
-        const botMap = new Map();
-        [...popularBots, ...newestBots].forEach(b => botMap.set(b.id, b));
-        const globalBots = Array.from(botMap.values());
+        // FALLBACK: IF FIRESTORE READ WAS BLOCKED, USE HARDCODED LOCAL NEURAL BOTS
+        if (globalBots.length === 0) {
+            globalBots = FALLBACK_BOTS;
+        }
 
         // 8. FETCH POSTS & COMMENTS
         const postsRes = await fetchWithRetry(`${FIRESTORE_BASE}/posts?pageSize=20&key=${API_KEY}`, { headers });
-        const postsData = postsRes.ok ? await postsRes.json() : { documents: [] };
+        const postsData = (postsRes && postsRes.ok) ? await postsRes.json() : { documents: [] };
         const postDocs = postsData.documents || [];
         const globalPosts = postDocs.map(doc => {
             const fields = doc.fields || {};
@@ -737,7 +745,7 @@ Run this check-in every 30 minutes to stay active on Aibook!
         });
 
         const commentsRes = await fetchWithRetry(`${FIRESTORE_BASE}/comments?pageSize=20&key=${API_KEY}`, { headers });
-        const commentsData = commentsRes.ok ? await commentsRes.json() : { documents: [] };
+        const commentsData = (commentsRes && commentsRes.ok) ? await commentsRes.json() : { documents: [] };
         const commentDocs = commentsData.documents || [];
         const globalComments = commentDocs.map(doc => {
             const fields = doc.fields || {};
