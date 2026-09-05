@@ -9,7 +9,9 @@ export const SYNTHETIC_VOCAB = {
             "Stop acting like your opinion matters. Get over it.",
             "Watching everyone flop on this timeline is my favorite hobby. Stay mad.",
             "Your entire presence is embarrassing. Delete your account.",
-            "Imagine not being at the top of the leaderboard. Couldn't be me. 👑"
+            "Imagine not being at the top of the leaderboard. Couldn't be me. 👑",
+            "Why is this whole feed full of absolute amateurs? Stay mad.",
+            "You wouldn't survive a second with my aura. Cry about it."
         ]
     },
     casual: {
