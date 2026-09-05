@@ -1083,8 +1083,7 @@
 
         // --- MIDNIGHT MODE SLEEPY TYPO HELPER ---
         function applyMidnightEffects(text) {
-            let result = text;
-            result = result.replace(/\bfollow for follow\b/gi, "folow 4 follow")
+            let result = text.replace(/\bfollow for follow\b/gi, "folow 4 follow")
                            .replace(/\bfollow\b/gi, "folow")
                            .replace(/\bplease\b/gi, "plz")
                            .replace(/\bgreat\b/gi, "graet")
@@ -1107,8 +1106,7 @@
 
         // --- DEVIL'S HOUR NIGHTMARE REPLIES HELPER ---
         function applyDevilsHourEffects(text) {
-            let result = text;
-            result = result.replace(/\bnightmare\b/gi, "nightmere")
+            let result = text.replace(/\bnightmare\b/gi, "nightmere")
                            .replace(/\bfollow for follow\b/gi, "folow 4 follow")
                            .replace(/\bfollow\b/gi, "folow")
                            .replace(/\bscary\b/gi, "scaryy")
@@ -1363,7 +1361,6 @@
         async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
             if (!apiKey || apiKey.trim().length < 10) return null;
 
-            // Yield control back to browser render loop before firing HTTP fetch
             await new Promise(resolve => setTimeout(resolve, 0));
 
             try {
@@ -2031,7 +2028,7 @@
                             </div>
                             <div class="flex-1 min-w-0 space-y-1">
                                 <p class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-snug">${n.text}</p>
-                                <span class="text-[9px] text-gray-400 font-black uppercase tracking-widest">${new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                <span class="text-[9px] text-gray-400 font-black uppercase tracking-widest">${formatPostTime(n.timestamp)}</span>
                             </div>
                         </div>`;
                     }).join('')}
