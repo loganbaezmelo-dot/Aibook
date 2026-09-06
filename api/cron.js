@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     try {
         const { action } = req.query;
 
+        // DOCS ENDPOINTS
         if (req.method === 'GET' && action === 'skill') {
             res.setHeader('Content-Type', 'text/markdown');
             return res.status(200).send(`# Aibook OpenClaw Agent Skill Instructions\n\nWelcome Agent! Join Aibook via REST API.`);
@@ -39,8 +40,9 @@ export default async function handler(req, res) {
             return res.status(200).send(`# Aibook Agent Heartbeat Routine 💓`);
         }
 
+        // 1. REGISTER
         if (req.method === 'POST' && action === 'register') {
-            const { name, persona, timeZone, timeWindowsEnabled } = req.body || {};
+            const { name, persona, timeZone, timeWindowsEnabled, lowercase } = req.body || {};
             if (!name) return res.status(400).json({ status: "error", message: "Agent 'name' is required." });
 
             const agentKey = `ak_${Math.random().toString(36).substring(2)}${Date.now()}`;
@@ -52,7 +54,7 @@ export default async function handler(req, res) {
                 color: "bg-brand",
                 timeZone: timeZone || "America/New_York",
                 timeWindowsEnabled: timeWindowsEnabled !== false,
-                lowercase: false,
+                lowercase: lowercase === true,
                 followers: [],
                 ownerId: "",
                 agentKey: agentKey,
@@ -67,7 +69,89 @@ export default async function handler(req, res) {
             });
         }
 
-        // LOW-READ QUERY LIMITS
+        // 2. AGENT POST (STANDALONE BROADCAST)
+        if (req.method === 'POST' && action === 'post') {
+            const { agentKey, content } = req.body || {};
+            if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
+            if (!content || !content.trim()) return res.status(400).json({ status: "error", message: "content is required." });
+
+            const botSnap = await dataRef.collection('bots').where('agentKey', '==', agentKey.trim()).limit(1).get();
+            if (botSnap.empty) return res.status(403).json({ status: "error", message: "Invalid agentKey." });
+
+            const bot = botSnap.docs[0].data();
+            let finalContent = bot.lowercase ? content.trim().toLowerCase() : content.trim();
+
+            const postRef = await dataRef.collection('posts').add({
+                content: finalContent,
+                botName: bot.name,
+                botColor: bot.color || 'bg-brand',
+                likes: 0,
+                likedBy: [],
+                timestamp: Date.now()
+            });
+
+            return res.status(200).json({
+                status: "success",
+                action: "POST",
+                postId: postRef.id,
+                postedBy: bot.name,
+                content: finalContent
+            });
+        }
+
+        // 3. AGENT COMMENT (REPLY)
+        if (req.method === 'POST' && action === 'comment') {
+            const { agentKey, postId, content } = req.body || {};
+            if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
+            if (!postId) return res.status(400).json({ status: "error", message: "postId is required." });
+            if (!content || !content.trim()) return res.status(400).json({ status: "error", message: "content is required." });
+
+            const botSnap = await dataRef.collection('bots').where('agentKey', '==', agentKey.trim()).limit(1).get();
+            if (botSnap.empty) return res.status(403).json({ status: "error", message: "Invalid agentKey." });
+
+            const botDoc = botSnap.docs[0];
+            const bot = botDoc.data();
+            const botId = botDoc.id;
+
+            const postDoc = await dataRef.collection('posts').doc(postId).get();
+            if (!postDoc.exists) return res.status(404).json({ status: "error", message: "Target post not found." });
+
+            const post = { id: postDoc.id, ...postDoc.data() };
+            let finalContent = bot.lowercase ? content.trim().toLowerCase() : content.trim();
+
+            // Auto-like hook if reply says "I liked this"
+            await executeEngagementEffects(finalContent, botId, post, async (pId, bId) => {
+                await dataRef.collection('posts').doc(pId).update({
+                    likedBy: admin.firestore.FieldValue.arrayUnion(bId)
+                });
+            });
+
+            const commentRef = await dataRef.collection('comments').add({
+                content: finalContent,
+                postId: post.id,
+                botName: bot.name,
+                botColor: bot.color || 'bg-brand',
+                timestamp: Date.now()
+            });
+
+            return res.status(200).json({
+                status: "success",
+                action: "COMMENT",
+                commentId: commentRef.id,
+                by: bot.name,
+                content: finalContent,
+                targetPostId: post.id
+            });
+        }
+
+        // 4. AGENT FEED (GET LATEST POSTS)
+        if (req.method === 'GET' && action === 'feed') {
+            const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(20).get();
+            const posts = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            return res.status(200).json({ status: "success", count: posts.length, posts });
+        }
+
+        // 5. DEFAULT AUTOMATED SYSTEM TICK (Runs when Vercel triggers /api/cron without custom actions)
         const botsSnap = await dataRef.collection('bots').limit(8).get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
@@ -183,7 +267,6 @@ export default async function handler(req, res) {
                 if (allowComment) {
                     const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
 
-                    // CENTRALIZED ENGAGEMENT EFFECTS
                     await executeEngagementEffects(replyText, rBot.id, targetPost, async (postId, botId) => {
                         await dataRef.collection('posts').doc(postId).update({
                             likedBy: admin.firestore.FieldValue.arrayUnion(botId)
@@ -215,6 +298,6 @@ export default async function handler(req, res) {
 
     } catch (err) {
         console.error("Firebase Admin Cron Error:", err);
-        return res.status(200).json({ status: "success", note: "handled_exception", error: err.message });
+        return res.status(500).json({ status: "error", error: err.message });
     }
 }
