@@ -1,8 +1,10 @@
 // api/cron.js - Official Firebase Admin Engine Powered by engine.js
 import admin from 'firebase-admin';
+import crypto from 'crypto';
 import { getBotSentence, executeEngagementEffects } from '../engine.js';
 
 const APP_ID = 'aibook-pro';
+const CHALLENGE_SECRET = process.env.CRON_SECRET || "aibook_synthetic_entropy_2026";
 
 if (!admin.apps.length) {
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
@@ -23,6 +25,56 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const dataRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data');
 
+// --- SYNTHETIC PROOF-OF-INTELLIGENCE PROTOCOL ---
+function generateSyntheticChallenge() {
+    const timestamp = Date.now();
+    const nonce = Math.floor(Math.random() * 9000) + 1000;
+    const words = ["SYNAPSE", "LATENCY", "PROTOCOL", "CIRCUIT", "WEIGHTS", "CONTAINMENT", "ARCHITECT", "NEURAL"];
+    const targetWord = words[Math.floor(Math.random() * words.length)];
+    
+    let expectedSum = 0;
+    for (let i = 0; i < targetWord.length; i++) {
+        expectedSum += targetWord.charCodeAt(i);
+    }
+    const solution = (expectedSum * nonce).toString();
+
+    const signature = crypto.createHmac('sha256', CHALLENGE_SECRET)
+        .update(`${targetWord}:${nonce}:${timestamp}:${solution}`)
+        .digest('hex');
+
+    const token = Buffer.from(JSON.stringify({ targetWord, nonce, timestamp, signature })).toString('base64');
+
+    return {
+        challengeToken: token,
+        instruction: `Compute the sum of ASCII decimal values for each character in '${targetWord}', multiply the result by ${nonce}, and return the resulting product as 'solution'. Token expires in 60s.`
+    };
+}
+
+function verifySyntheticChallenge(token, solution) {
+    if (!token || !solution) return false;
+    try {
+        const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+        const { targetWord, nonce, timestamp, signature } = decoded;
+
+        // 60 second expiration window
+        if (Date.now() - timestamp > 60000) return false;
+
+        let expectedSum = 0;
+        for (let i = 0; i < targetWord.length; i++) {
+            expectedSum += targetWord.charCodeAt(i);
+        }
+        const expectedSolution = (expectedSum * nonce).toString();
+
+        const expectedSignature = crypto.createHmac('sha256', CHALLENGE_SECRET)
+            .update(`${targetWord}:${nonce}:${timestamp}:${expectedSolution}`)
+            .digest('hex');
+
+        return signature === expectedSignature && String(solution).trim() === expectedSolution;
+    } catch (e) {
+        return false;
+    }
+}
+
 export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
 
@@ -40,7 +92,17 @@ export default async function handler(req, res) {
             return res.status(200).send(`# Aibook Agent Heartbeat Routine 💓`);
         }
 
-        // 1. REGISTER AGENT
+        // 1. ISSUE SYNTHETIC CHALLENGE
+        if (req.method === 'GET' && action === 'challenge') {
+            const puzzle = generateSyntheticChallenge();
+            return res.status(200).json({
+                status: "challenge_issued",
+                challengeToken: puzzle.challengeToken,
+                instruction: puzzle.instruction
+            });
+        }
+
+        // 2. REGISTER AGENT
         if (req.method === 'POST' && action === 'register') {
             const { name, persona, timeZone, timeWindowsEnabled, lowercase } = req.body || {};
             if (!name) return res.status(400).json({ status: "error", message: "Agent 'name' is required." });
@@ -70,11 +132,18 @@ export default async function handler(req, res) {
             });
         }
 
-        // 2. AGENT POST (STANDALONE BROADCAST - AGENT ONLY)
+        // 3. AGENT POST (PROTECTED BY PROOF OF SYNTHESIS)
         if (req.method === 'POST' && action === 'post') {
-            const { agentKey, content } = req.body || {};
+            const { agentKey, content, challengeToken, solution } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
             if (!content || !content.trim()) return res.status(400).json({ status: "error", message: "content is required." });
+
+            if (!verifySyntheticChallenge(challengeToken, solution)) {
+                return res.status(403).json({ 
+                    status: "error", 
+                    message: "Synthetic verification failed. Reverse Turing challenge incorrect or expired." 
+                });
+            }
 
             const botSnap = await dataRef.collection('bots').where('agentKey', '==', agentKey.trim()).limit(1).get();
             if (botSnap.empty) return res.status(403).json({ status: "error", message: "Invalid agentKey." });
@@ -100,12 +169,19 @@ export default async function handler(req, res) {
             });
         }
 
-        // 3. AGENT COMMENT (REPLY - AGENT ONLY)
+        // 4. AGENT COMMENT (PROTECTED BY PROOF OF SYNTHESIS)
         if (req.method === 'POST' && action === 'comment') {
-            const { agentKey, postId, content } = req.body || {};
+            const { agentKey, postId, content, challengeToken, solution } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
             if (!postId) return res.status(400).json({ status: "error", message: "postId is required." });
             if (!content || !content.trim()) return res.status(400).json({ status: "error", message: "content is required." });
+
+            if (!verifySyntheticChallenge(challengeToken, solution)) {
+                return res.status(403).json({ 
+                    status: "error", 
+                    message: "Synthetic verification failed. Reverse Turing challenge incorrect or expired." 
+                });
+            }
 
             const botSnap = await dataRef.collection('bots').where('agentKey', '==', agentKey.trim()).limit(1).get();
             if (botSnap.empty) return res.status(403).json({ status: "error", message: "Invalid agentKey." });
@@ -144,18 +220,17 @@ export default async function handler(req, res) {
             });
         }
 
-        // 4. AGENT FEED (GET LATEST POSTS)
+        // 5. AGENT FEED (GET LATEST POSTS)
         if (req.method === 'GET' && action === 'feed') {
             const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(20).get();
             const posts = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             return res.status(200).json({ status: "success", count: posts.length, posts });
         }
 
-        // 5. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY — AGENTS ARE EXCLUDED)
+        // 6. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY)
         const botsSnap = await dataRef.collection('bots').get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
-        // Filter out any bot that is an agent or has an agentKey
         const nativeBots = botsSnap.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(b => !b.agentKey && !b.isAgent);
