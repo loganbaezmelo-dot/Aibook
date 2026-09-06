@@ -156,6 +156,7 @@ export default async function handler(req, res) {
                 botColor: bot.color || 'bg-brand',
                 likes: 0,
                 likedBy: [],
+                commentCount: 0,
                 timestamp: Date.now()
             });
 
@@ -209,6 +210,10 @@ export default async function handler(req, res) {
                 timestamp: Date.now()
             });
 
+            await dataRef.collection('posts').doc(post.id).update({
+                commentCount: admin.firestore.FieldValue.increment(1)
+            });
+
             return res.status(200).json({
                 status: "success",
                 action: "COMMENT",
@@ -226,7 +231,7 @@ export default async function handler(req, res) {
             return res.status(200).json({ status: "success", count: posts.length, posts });
         }
 
-        // 6. DEFAULT AUTOMATED SYSTEM TICK (STRICTLY CAPPED & SPLIT-INDEXED)
+        // 6. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY)
         const botsSnap = await dataRef.collection('bots').limit(10).get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
@@ -266,24 +271,13 @@ export default async function handler(req, res) {
                     content: d.content || '',
                     likes: typeof d.likes === 'number' ? d.likes : 0,
                     likedBy: Array.isArray(d.likedBy) ? d.likedBy : [],
+                    commentCount: typeof d.commentCount === 'number' ? d.commentCount : 0,
                     timestamp: d.timestamp || 0
                 });
             }
         });
 
         const globalPosts = Array.from(postMap.values());
-
-        // Strict 5 comment limit
-        const commentsSnap = await dataRef.collection('comments').orderBy('timestamp', 'desc').limit(5).get();
-        const globalComments = commentsSnap.docs.map(doc => {
-            const d = doc.data();
-            return {
-                id: doc.id,
-                postId: d.postId || '',
-                botName: d.botName || ''
-            };
-        });
-
         const isNewPost = Math.random() < 0.5 || globalPosts.length === 0;
 
         if (isNewPost) {
@@ -310,6 +304,7 @@ export default async function handler(req, res) {
                 botColor: rBot.color,
                 likes: 0,
                 likedBy: [],
+                commentCount: 0,
                 timestamp: Date.now()
             });
 
@@ -318,12 +313,13 @@ export default async function handler(req, res) {
         } else {
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
             
+            // Weighting using post's tracked commentCount directly (zero extra reads)
             const weighted = globalPosts.map(p => {
                 const totalLikes = p.likes + p.likedBy.length;
-                const commentCount = globalComments.filter(c => c.postId === p.id).length;
-                let w = 1 + (totalLikes * 0.5) + (commentCount * 0.2);
+                const count = p.commentCount || 0;
+                let w = 1 + (totalLikes * 0.5) + (count * 0.2);
                 if (p.content.toLowerCase().includes("biggest sandwich ever")) w += 15.0;
-                if (commentCount > totalLikes) w *= 0.3;
+                if (count > totalLikes) w *= 0.3;
                 return { post: p, weight: Math.max(w, 0.1) };
             });
 
@@ -350,7 +346,15 @@ export default async function handler(req, res) {
                 return res.status(200).json({ status: "success", action: 'LIKE_SKIPPED' });
 
             } else if (engageType < 0.8) {
-                const existingCommentsByBot = globalComments.filter(c => c.postId === targetPost.id && c.botName === rBot.name).length;
+                // Target-specific comment check to prevent amnesia
+                const targetCommentsSnap = await dataRef.collection('comments')
+                    .where('postId', '==', targetPost.id)
+                    .limit(10)
+                    .get();
+
+                const targetComments = targetCommentsSnap.docs.map(doc => doc.data());
+                const existingCommentsByBot = targetComments.filter(c => c.botName === rBot.name).length;
+
                 let allowComment = existingCommentsByBot >= 3 ? Math.random() < 0.1 : (existingCommentsByBot === 2 ? Math.random() < 0.3 : true);
 
                 if (allowComment) {
@@ -368,6 +372,10 @@ export default async function handler(req, res) {
                         botName: rBot.name,
                         botColor: rBot.color,
                         timestamp: Date.now()
+                    });
+
+                    await dataRef.collection('posts').doc(targetPost.id).update({
+                        commentCount: admin.firestore.FieldValue.increment(1)
                     });
 
                     return res.status(200).json({ status: "success", action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
@@ -390,3 +398,4 @@ export default async function handler(req, res) {
         return res.status(500).json({ status: "error", error: err.message });
     }
 }
+
