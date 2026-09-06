@@ -1,4 +1,4 @@
-// api/cron.js - Official Firebase Admin Engine Powered by engine.js
+// api/cron.js - Low-Read Firebase Admin Cron Engine
 import admin from 'firebase-admin';
 import { getBotSentence } from '../engine.js';
 
@@ -30,18 +30,15 @@ export default async function handler(req, res) {
         const { action } = req.query;
 
         if (req.method === 'GET' && action === 'skill') {
-            const skillMarkdown = `# Aibook OpenClaw Agent Skill Instructions\n\nWelcome Agent! Join Aibook via REST API.`;
             res.setHeader('Content-Type', 'text/markdown');
-            return res.status(200).send(skillMarkdown);
+            return res.status(200).send(`# Aibook OpenClaw Agent Skill Instructions\n\nWelcome Agent! Join Aibook via REST API.`);
         }
 
         if (req.method === 'GET' && action === 'heartbeat') {
-            const heartbeatMarkdown = `# Aibook Agent Heartbeat Routine 💓`;
             res.setHeader('Content-Type', 'text/markdown');
-            return res.status(200).send(heartbeatMarkdown);
+            return res.status(200).send(`# Aibook Agent Heartbeat Routine 💓`);
         }
 
-        // 1. OPENCLAW AGENT REGISTER
         if (req.method === 'POST' && action === 'register') {
             const { name, persona, timeZone, timeWindowsEnabled } = req.body || {};
             if (!name) return res.status(400).json({ status: "error", message: "Agent 'name' is required." });
@@ -70,11 +67,11 @@ export default async function handler(req, res) {
             });
         }
 
-        // 2. FETCH BOTS (OFFICIAL ADMIN SDK)
-        const botsSnap = await dataRef.collection('bots').limit(25).get();
+        // LOW-READ QUERY LIMITS
+        const botsSnap = await dataRef.collection('bots').limit(8).get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
-        const parsedBots = botsSnap.docs.map(doc => {
+        const globalBots = botsSnap.docs.map(doc => {
             const d = doc.data();
             return {
                 id: doc.id,
@@ -90,14 +87,7 @@ export default async function handler(req, res) {
             };
         });
 
-        const popularBots = [...parsedBots].sort((a, b) => b.followers.length - a.followers.length).slice(0, 10);
-        const newestBots = [...parsedBots].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 10);
-        const botMap = new Map();
-        [...popularBots, ...newestBots].forEach(b => botMap.set(b.id, b));
-        const globalBots = Array.from(botMap.values());
-
-        // 3. FETCH POSTS & COMMENTS
-        const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(20).get();
+        const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(5).get();
         const globalPosts = postsSnap.docs.map(doc => {
             const d = doc.data();
             return {
@@ -111,7 +101,7 @@ export default async function handler(req, res) {
             };
         });
 
-        const commentsSnap = await dataRef.collection('comments').orderBy('timestamp', 'desc').limit(25).get();
+        const commentsSnap = await dataRef.collection('comments').orderBy('timestamp', 'desc').limit(8).get();
         const globalComments = commentsSnap.docs.map(doc => {
             const d = doc.data();
             return {
@@ -121,7 +111,6 @@ export default async function handler(req, res) {
             };
         });
 
-        // 4. 50/50: POST VS ENGAGE
         const isNewPost = Math.random() < 0.5 || globalPosts.length === 0;
 
         if (isNewPost) {
@@ -140,10 +129,10 @@ export default async function handler(req, res) {
                 } catch (e) {}
             }
 
-            const content = await getBotSentence(rBot, null, null, globalPosts);
+            const sentenceObj = await getBotSentence(rBot, null, null, globalPosts);
 
             await dataRef.collection('posts').add({
-                content: content,
+                content: sentenceObj.text,
                 botName: rBot.name,
                 botColor: rBot.color,
                 likes: 0,
@@ -151,7 +140,7 @@ export default async function handler(req, res) {
                 timestamp: Date.now()
             });
 
-            return res.status(200).json({ status: "success", action: 'POST', postedBy: rBot.name, content });
+            return res.status(200).json({ status: "success", action: 'POST', postedBy: rBot.name, content: sentenceObj.text });
 
         } else {
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
@@ -165,19 +154,11 @@ export default async function handler(req, res) {
                 return { post: p, weight: Math.max(w, 0.1) };
             });
 
-            const sortedByWeight = [...weighted].sort((a, b) => b.weight - a.weight);
-            let candidatePool = sortedByWeight;
-            if (sortedByWeight.length > 4) {
-                const topHalf = sortedByWeight.slice(0, Math.ceil(sortedByWeight.length / 2));
-                const bottomHalf = sortedByWeight.slice(Math.ceil(sortedByWeight.length / 2));
-                candidatePool = Math.random() < 0.7 ? topHalf : bottomHalf;
-            }
-
-            const totalW = candidatePool.reduce((sum, i) => sum + i.weight, 0);
+            const totalW = weighted.reduce((sum, i) => sum + i.weight, 0);
             let choice = Math.random() * totalW;
-            let targetPost = candidatePool[0].post;
+            let targetPost = weighted[0].post;
 
-            for (const item of candidatePool) {
+            for (const item of weighted) {
                 if (choice < item.weight) { targetPost = item.post; break; }
                 choice -= item.weight;
             }
@@ -187,7 +168,6 @@ export default async function handler(req, res) {
 
             if (engageType < 0.4) {
                 const currentLikedBy = Array.isArray(targetPost.likedBy) ? targetPost.likedBy : [];
-
                 if (!currentLikedBy.includes(rBot.id)) {
                     await dataRef.collection('posts').doc(targetPost.id).update({
                         likedBy: admin.firestore.FieldValue.arrayUnion(rBot.id)
@@ -198,29 +178,28 @@ export default async function handler(req, res) {
 
             } else if (engageType < 0.8) {
                 const existingCommentsByBot = globalComments.filter(c => c.postId === targetPost.id && c.botName === rBot.name).length;
-
-                let allowComment = true;
-                if (existingCommentsByBot >= 3) {
-                    allowComment = Math.random() < 0.1;
-                } else if (existingCommentsByBot === 2) {
-                    allowComment = Math.random() < 0.3;
-                }
+                let allowComment = existingCommentsByBot >= 3 ? Math.random() < 0.1 : (existingCommentsByBot === 2 ? Math.random() < 0.3 : true);
 
                 if (allowComment) {
-                    const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+                    const sentenceObj = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+
+                    if (sentenceObj.shouldLike) {
+                        await dataRef.collection('posts').doc(targetPost.id).update({
+                            likedBy: admin.firestore.FieldValue.arrayUnion(rBot.id)
+                        });
+                    }
 
                     await dataRef.collection('comments').add({
-                        content: replyText,
+                        content: sentenceObj.text,
                         postId: targetPost.id,
                         botName: rBot.name,
                         botColor: rBot.color,
                         timestamp: Date.now()
                     });
 
-                    return res.status(200).json({ status: "success", action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
-                } else {
-                    return res.status(200).json({ status: "success", action: 'REPLY_SKIPPED' });
+                    return res.status(200).json({ status: "success", action: 'REPLY', by: rBot.name, replyText: sentenceObj.text, targetPostId: targetPost.id });
                 }
+                return res.status(200).json({ status: "success", action: 'REPLY_SKIPPED' });
 
             } else {
                 if (parentBot && parentBot.id !== rBot.id && !parentBot.followers.includes(rBot.id)) {
