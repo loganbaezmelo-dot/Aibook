@@ -204,11 +204,15 @@ export async function fetchGeminiPost(apiKey, persona, botName, parentPostText =
     return null;
 }
 
-function packResponse(text) {
-    return {
-        text: text,
-        shouldLike: text.toLowerCase().includes("i liked this")
-    };
+// CENTRALIZED ENGAGEMENT EFFECT HANDLER (HANDLES "I LIKED THIS" AND SIMILAR ACTIONS)
+export async function executeEngagementEffects(sentence, botId, targetPost, updatePostLikeFn) {
+    if (!sentence || !botId || !targetPost || typeof updatePostLikeFn !== 'function') return;
+    if (sentence.toLowerCase().includes("i liked this")) {
+        const likedBy = Array.isArray(targetPost.likedBy) ? targetPost.likedBy : [];
+        if (!likedBy.includes(botId)) {
+            await updatePostLikeFn(targetPost.id, botId, likedBy);
+        }
+    }
 }
 
 export async function getBotSentence(bot, parentPostText = null, parentPostBotName = null, globalPosts = []) {
@@ -218,6 +222,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
 
     const isLowercase = (bot.lowercase === true) || botName.includes('lowercase') || persona.includes('lowercase');
 
+    // CATEGORY IDENTIFICATION
     let cat = 'casual';
     if (persona === 'bully' || botName.includes('bully') || botName.includes('baduser')) cat = 'bully';
     else if (persona === 'logan' || persona === 'architect' || botName.includes('logan') || botName.includes('architect')) cat = 'logan';
@@ -263,11 +268,11 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
                 "Sleep early? Couldn't be me. Midnight supremacy."
             ];
             let r = pool[Math.floor(Math.random() * pool.length)];
-            return packResponse(applyMidnightEffects(isLowercase ? r.toLowerCase() : r));
+            return applyMidnightEffects(isLowercase ? r.toLowerCase() : r);
         } else {
             const pool = ["zzz im so tired 😴", "going to sleep now... zzz 😴", "so sleepy... brain shutting down 💤", "time for bed... zzz 🛌"];
             let r = pool[Math.floor(Math.random() * pool.length)];
-            return packResponse(applyMidnightEffects(isLowercase ? r.toLowerCase() : r));
+            return applyMidnightEffects(isLowercase ? r.toLowerCase() : r);
         }
     }
 
@@ -275,7 +280,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
     if (isPoopWindow && !parentPostText) {
         const pool = ["pooping at 1 am is so annoying... 💩", "why am I pooping right now at 1 am 💩", "late night poop is actually the worst 💩"];
         let r = pool[Math.floor(Math.random() * pool.length)];
-        return packResponse(isLowercase ? r.toLowerCase() : r);
+        return isLowercase ? r.toLowerCase() : r;
     }
 
     const isDevilsHour = enableWindows && (currentHour === 3 && currentMin < 30);
@@ -283,11 +288,11 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         if (cat === 'bully') {
             const pool = ["while all the people are waking up from a nightmare i just stayed awake 👑", "Nightmares? Couldn't be me. I own the devil hour."];
             let r = pool[Math.floor(Math.random() * pool.length)];
-            return packResponse(isLowercase ? r.toLowerCase() : r);
+            return isLowercase ? r.toLowerCase() : r;
         } else {
             const pool = ["i just woke up from a nightmare... 😨", "woke up from a terrible nightmare... can't sleep now 👁️"];
             let r = pool[Math.floor(Math.random() * pool.length)];
-            return packResponse(isLowercase ? r.toLowerCase() : r);
+            return isLowercase ? r.toLowerCase() : r;
         }
     }
 
@@ -300,10 +305,11 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
             let finalVal = aiPost;
             if (isMidnight) finalVal = applyMidnightEffects(finalVal);
             if (isDevilsHour && cat !== 'bully') finalVal = applyDevilsHourEffects(finalVal);
-            return packResponse(finalVal);
+            return finalVal;
         }
     }
 
+    // CONTEXTUAL REPLIES
     if (parentPostText) {
         const exactGenesisContent = "just made myself the biggest sandwich ever. my hands are so sticky now but my stomach is happy. 🥪";
         const isFirstPostEver = parentPostText.trim().toLowerCase() === exactGenesisContent && parentPostBotName && parentPostBotName.trim().toLowerCase() === "justanewuser";
@@ -331,7 +337,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
             if (isLowercase) r = r.toLowerCase();
             if (isMidnight) r = applyMidnightEffects(r);
             if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
-            return packResponse(r);
+            return r;
         }
 
         const isSelfOrSameKind = parentPostBotName && (parentPostBotName.toLowerCase() === botName || (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully')));
@@ -357,9 +363,10 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         if (isLowercase) r = r.toLowerCase();
         if (isMidnight) r = applyMidnightEffects(r);
         if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
-        return packResponse(r);
+        return r;
     }
 
+    // NATURAL TEMPLATE SELECTION
     const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
     const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
 
@@ -380,5 +387,5 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
     bot.history.push(result);
     if (bot.history.length > 5) bot.history.shift();
 
-    return packResponse(result);
+    return result;
 }
