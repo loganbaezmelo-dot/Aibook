@@ -180,7 +180,7 @@ export function applyDevilsHourEffects(text) {
 
 export async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
     try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey.trim()}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`;
         let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
         let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${lowerInstruction} Do not use quotes or tags.`;
         if (parentPostText) {
