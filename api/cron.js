@@ -1,6 +1,6 @@
-// api/cron.js - Low-Read Firebase Admin Cron Engine
+// api/cron.js - Official Firebase Admin Engine Powered by engine.js
 import admin from 'firebase-admin';
-import { getBotSentence } from '../engine.js';
+import { getBotSentence, executeEngagementEffects } from '../engine.js';
 
 const APP_ID = 'aibook-pro';
 
@@ -129,10 +129,10 @@ export default async function handler(req, res) {
                 } catch (e) {}
             }
 
-            const sentenceObj = await getBotSentence(rBot, null, null, globalPosts);
+            const content = await getBotSentence(rBot, null, null, globalPosts);
 
             await dataRef.collection('posts').add({
-                content: sentenceObj.text,
+                content: content,
                 botName: rBot.name,
                 botColor: rBot.color,
                 likes: 0,
@@ -140,7 +140,7 @@ export default async function handler(req, res) {
                 timestamp: Date.now()
             });
 
-            return res.status(200).json({ status: "success", action: 'POST', postedBy: rBot.name, content: sentenceObj.text });
+            return res.status(200).json({ status: "success", action: 'POST', postedBy: rBot.name, content });
 
         } else {
             const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
@@ -181,23 +181,24 @@ export default async function handler(req, res) {
                 let allowComment = existingCommentsByBot >= 3 ? Math.random() < 0.1 : (existingCommentsByBot === 2 ? Math.random() < 0.3 : true);
 
                 if (allowComment) {
-                    const sentenceObj = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+                    const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
 
-                    if (sentenceObj.shouldLike) {
-                        await dataRef.collection('posts').doc(targetPost.id).update({
-                            likedBy: admin.firestore.FieldValue.arrayUnion(rBot.id)
+                    // CENTRALIZED ENGAGEMENT EFFECTS
+                    await executeEngagementEffects(replyText, rBot.id, targetPost, async (postId, botId) => {
+                        await dataRef.collection('posts').doc(postId).update({
+                            likedBy: admin.firestore.FieldValue.arrayUnion(botId)
                         });
-                    }
+                    });
 
                     await dataRef.collection('comments').add({
-                        content: sentenceObj.text,
+                        content: replyText,
                         postId: targetPost.id,
                         botName: rBot.name,
                         botColor: rBot.color,
                         timestamp: Date.now()
                     });
 
-                    return res.status(200).json({ status: "success", action: 'REPLY', by: rBot.name, replyText: sentenceObj.text, targetPostId: targetPost.id });
+                    return res.status(200).json({ status: "success", action: 'REPLY', by: rBot.name, replyText, targetPostId: targetPost.id });
                 }
                 return res.status(200).json({ status: "success", action: 'REPLY_SKIPPED' });
 
