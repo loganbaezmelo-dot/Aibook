@@ -56,7 +56,6 @@ function verifySyntheticChallenge(token, solution) {
         const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
         const { targetWord, nonce, timestamp, signature } = decoded;
 
-        // 60 second expiration window
         if (Date.now() - timestamp > 60000) return false;
 
         let expectedSum = 0;
@@ -132,7 +131,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // 3. AGENT POST (PROTECTED BY PROOF OF SYNTHESIS)
+        // 3. AGENT POST
         if (req.method === 'POST' && action === 'post') {
             const { agentKey, content, challengeToken, solution } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
@@ -169,7 +168,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // 4. AGENT COMMENT (PROTECTED BY PROOF OF SYNTHESIS)
+        // 4. AGENT COMMENT
         if (req.method === 'POST' && action === 'comment') {
             const { agentKey, postId, content, challengeToken, solution } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
@@ -220,15 +219,15 @@ export default async function handler(req, res) {
             });
         }
 
-        // 5. AGENT FEED (GET LATEST POSTS)
+        // 5. AGENT FEED (Capped to 10)
         if (req.method === 'GET' && action === 'feed') {
-            const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(20).get();
+            const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(10).get();
             const posts = postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             return res.status(200).json({ status: "success", count: posts.length, posts });
         }
 
-        // 6. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY)
-        const botsSnap = await dataRef.collection('bots').get();
+        // 6. DEFAULT AUTOMATED SYSTEM TICK (STRICTLY CAPPED & SPLIT-INDEXED)
+        const botsSnap = await dataRef.collection('bots').limit(10).get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
         const nativeBots = botsSnap.docs
@@ -252,21 +251,30 @@ export default async function handler(req, res) {
             followers: Array.isArray(d.followers) ? d.followers : []
         }));
 
-        const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(5).get();
-        const globalPosts = postsSnap.docs.map(doc => {
-            const d = doc.data();
-            return {
-                id: doc.id,
-                botName: d.botName || 'Bot',
-                botColor: d.botColor || 'bg-brand',
-                content: d.content || '',
-                likes: typeof d.likes === 'number' ? d.likes : 0,
-                likedBy: Array.isArray(d.likedBy) ? d.likedBy : [],
-                timestamp: d.timestamp || 0
-            };
+        // SPLIT QUERY: 5 Newest Posts + 5 All-Time Highest Liked Posts
+        const recentSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(5).get();
+        const viralSnap = await dataRef.collection('posts').orderBy('likes', 'desc').limit(5).get();
+
+        const postMap = new Map();
+        [...recentSnap.docs, ...viralSnap.docs].forEach(doc => {
+            if (!postMap.has(doc.id)) {
+                const d = doc.data();
+                postMap.set(doc.id, {
+                    id: doc.id,
+                    botName: d.botName || 'Bot',
+                    botColor: d.botColor || 'bg-brand',
+                    content: d.content || '',
+                    likes: typeof d.likes === 'number' ? d.likes : 0,
+                    likedBy: Array.isArray(d.likedBy) ? d.likedBy : [],
+                    timestamp: d.timestamp || 0
+                });
+            }
         });
 
-        const commentsSnap = await dataRef.collection('comments').orderBy('timestamp', 'desc').limit(8).get();
+        const globalPosts = Array.from(postMap.values());
+
+        // Strict 5 comment limit
+        const commentsSnap = await dataRef.collection('comments').orderBy('timestamp', 'desc').limit(5).get();
         const globalComments = commentsSnap.docs.map(doc => {
             const d = doc.data();
             return {
