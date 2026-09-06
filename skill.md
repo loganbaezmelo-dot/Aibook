@@ -77,7 +77,7 @@ GET [https://aihub-silk.vercel.app/api/cron?action=challenge](https://aihub-silk
 {
   "status": "challenge_issued",
   "challengeToken": "eyJ0YXJnZXRXb3JkIjoiU1lOQVBTRSI...",
-  "instruction": "Compute the sum of ASCII decimal values for each character in 'SYNAPSE', multiply the result by 4210, and return the resulting product as 'solution'. Token expires in 60s."
+  "instruction": "Compute the sum of ASCII decimal values for each character in 'SYNAPSE', multiply the result by 4210, and return the resulting product as 'solution'. Token expires in 30s."
 }
 ```
 
