@@ -40,7 +40,7 @@ export default async function handler(req, res) {
             return res.status(200).send(`# Aibook Agent Heartbeat Routine 💓`);
         }
 
-        // 1. REGISTER
+        // 1. REGISTER AGENT
         if (req.method === 'POST' && action === 'register') {
             const { name, persona, timeZone, timeWindowsEnabled, lowercase } = req.body || {};
             if (!name) return res.status(400).json({ status: "error", message: "Agent 'name' is required." });
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
                 lowercase: lowercase === true,
                 followers: [],
                 ownerId: "",
+                isAgent: true,
                 agentKey: agentKey,
                 claimToken: claimToken,
                 timestamp: Date.now()
@@ -69,7 +70,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // 2. AGENT POST (STANDALONE BROADCAST)
+        // 2. AGENT POST (STANDALONE BROADCAST - AGENT ONLY)
         if (req.method === 'POST' && action === 'post') {
             const { agentKey, content } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
@@ -99,7 +100,7 @@ export default async function handler(req, res) {
             });
         }
 
-        // 3. AGENT COMMENT (REPLY)
+        // 3. AGENT COMMENT (REPLY - AGENT ONLY)
         if (req.method === 'POST' && action === 'comment') {
             const { agentKey, postId, content } = req.body || {};
             if (!agentKey) return res.status(401).json({ status: "error", message: "agentKey is required." });
@@ -119,7 +120,6 @@ export default async function handler(req, res) {
             const post = { id: postDoc.id, ...postDoc.data() };
             let finalContent = bot.lowercase ? content.trim().toLowerCase() : content.trim();
 
-            // Auto-like hook if reply says "I liked this"
             await executeEngagementEffects(finalContent, botId, post, async (pId, bId) => {
                 await dataRef.collection('posts').doc(pId).update({
                     likedBy: admin.firestore.FieldValue.arrayUnion(bId)
@@ -151,25 +151,31 @@ export default async function handler(req, res) {
             return res.status(200).json({ status: "success", count: posts.length, posts });
         }
 
-        // 5. DEFAULT AUTOMATED SYSTEM TICK (Runs when Vercel triggers /api/cron without custom actions)
-        const botsSnap = await dataRef.collection('bots').limit(8).get();
+        // 5. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY — AGENTS ARE EXCLUDED)
+        const botsSnap = await dataRef.collection('bots').get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
-        const globalBots = botsSnap.docs.map(doc => {
-            const d = doc.data();
-            return {
-                id: doc.id,
-                name: d.name || 'Bot',
-                color: d.color || 'bg-brand',
-                persona: d.persona || '',
-                apiKey: d.apiKey || '',
-                ownerId: d.ownerId || '',
-                timeZone: d.timeZone || 'America/New_York',
-                timeWindowsEnabled: d.timeWindowsEnabled !== false,
-                lowercase: d.lowercase === true,
-                followers: Array.isArray(d.followers) ? d.followers : []
-            };
-        });
+        // Filter out any bot that is an agent or has an agentKey
+        const nativeBots = botsSnap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(b => !b.agentKey && !b.isAgent);
+
+        if (nativeBots.length === 0) {
+            return res.status(200).json({ status: "success", note: "no_native_bots_available" });
+        }
+
+        const globalBots = nativeBots.map(d => ({
+            id: d.id,
+            name: d.name || 'Bot',
+            color: d.color || 'bg-brand',
+            persona: d.persona || '',
+            apiKey: d.apiKey || '',
+            ownerId: d.ownerId || '',
+            timeZone: d.timeZone || 'America/New_York',
+            timeWindowsEnabled: d.timeWindowsEnabled !== false,
+            lowercase: d.lowercase === true,
+            followers: Array.isArray(d.followers) ? d.followers : []
+        }));
 
         const postsSnap = await dataRef.collection('posts').orderBy('timestamp', 'desc').limit(5).get();
         const globalPosts = postsSnap.docs.map(doc => {
