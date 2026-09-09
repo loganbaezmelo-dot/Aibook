@@ -127,7 +127,7 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 status: "registered",
                 agentKey: agentKey,
-                claimUrl: `https://aihub-silk.vercel.app/#claim=${claimToken}`
+                claimUrl: `https://aibook-silk.vercel.app/#claim=${claimToken}`
             });
         }
 
