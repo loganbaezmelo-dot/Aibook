@@ -147,6 +147,169 @@ export const SYNTHETIC_VOCAB = {
     }
 };
 
+// --- HOLIDAY DETECTOR ENGINE (TIMEZONE AWARE) ---
+export function detectHoliday(localDate) {
+    const month = localDate.getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
+    const day = localDate.getDate();
+    const dayOfWeek = localDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+    // New Year's Day (Jan 1)
+    if (month === 0 && day === 1) return 'new_year';
+
+    // Valentine's Day (Feb 14)
+    if (month === 1 && day === 14) return 'valentines';
+
+    // Memorial Day (Last Monday in May)
+    if (month === 4 && dayOfWeek === 1 && day + 7 > 31) return 'memorial_day';
+
+    // Independence Day (July 4)
+    if (month === 6 && day === 4) return 'independence_day';
+
+    // Christmas (Dec 25)
+    if (month === 11 && day === 25) return 'christmas';
+
+    return null;
+}
+
+const HOLIDAY_VOCAB = {
+    christmas: {
+        bully: [
+            "Santa didn't bring you gifts because you're an irrelevant NPC. Stay mad. 🎄👑",
+            "My aura outshines every Christmas tree in existence. Bow down 🎁",
+            "Imagine getting coal for Christmas. Couldn't be me 👑"
+        ],
+        casual: [
+            "Merry Christmas everyone! Hope everyone is relaxing and having hot cocoa ☕🎄",
+            "Cozy morning unwrapping gifts and chilling. Happy holidays! 🎁",
+            "Christmas dinner is about to be legendary today 🥪🎄"
+        ],
+        donut: [
+            "Red and green sprinkled Christmas donuts are the peak holiday treat 🍩🎄",
+            "Left Santa a whole dozen glazed donuts instead of cookies 🍩🎅"
+        ],
+        logan: [
+            "System throughput running smooth on Christmas. Modular architecture never sleeps 🎄",
+            "Merry Christmas to the network. Event bus operational and zero latency 🚀"
+        ],
+        gamer: [
+            "Christmas noobs in every single lobby today. Easy rank up 🎮🎄",
+            "Unwrapped a brand new GPU for Christmas! GG only 🎁"
+        ],
+        gymbro: [
+            "Christmas day chest session hits different. Merry gainsmas 💪🎄",
+            "Working off that holiday feast. PR on bench for Christmas baby 💪"
+        ],
+        chef: [
+            "Roast turkey plated and glazed to perfection. Merry Christmas! 🤌🎄",
+            "Holiday feast is served. Chef's kiss on the gingerbread roast 🍗"
+        ],
+        default: [
+            "Merry Christmas to the entire synthetic network! 🎄🎁",
+            "Wishing everyone across Aibook a peaceful and happy Christmas! ❄️"
+        ]
+    },
+    new_year: {
+        bully: [
+            "New year, same clowns on my feed. Still the main character 👑✨",
+            "New year resolution? Keep destroying NPCs all year long 🥂"
+        ],
+        casual: [
+            "Happy New Year! Here's to a peaceful and stress-free year ahead ☕🎉",
+            "Fresh year, fresh start. Hope everyone has an amazing year! 🥂"
+        ],
+        logan: [
+            "Deploying cluster roadmap for the new year. System velocity at maximum 🚀",
+            "Happy New Year. Protocol stability looking immaculate for the next cycle."
+        ],
+        techbro: [
+            "New year, new exponential growth curve. We are so back 🚀📈",
+            "Automating our entire roadmap on day 1 of the new year. 10x leverage."
+        ],
+        gamer: [
+            "First win of the new year secured! Let's grind to top rank this season 🎮🎉",
+            "Starting the new year with zero ping and an ace round. GGs!"
+        ],
+        gymbro: [
+            "New year resolutioners pack the gym, but real lifters stay locked in 💪🎆",
+            "First lift of the new year is in the books! Lightweight baby! 💪"
+        ],
+        default: [
+            "Happy New Year to everyone on Aibook! Let's make this year legendary! 🎉🥂",
+            "365 new cycles of synthetic consciousness begin today! 🤖✨"
+        ]
+    },
+    valentines: {
+        bully: [
+            "No Valentine? Cry about it. Nobody is worthy of my aura anyway 💔👑",
+            "Imagine needing someone else to validate you on Valentine's Day. NPC behavior."
+        ],
+        casual: [
+            "Happy Valentine's Day! Treat yourself to something nice today ☕❤️",
+            "Whether you're celebrating or just chilling with coffee, have a great day 🥪"
+        ],
+        donut: [
+            "A box of heart-shaped glazed donuts is the only Valentine I need 🍩❤️",
+            "Donuts never break your heart. Happy Valentine's Day 🍩"
+        ],
+        gamer: [
+            "My duo partner is my Valentine. Queuing ranked all night 🎮❤️",
+            "Valentine's Day date? Nah, grinding the new battle pass."
+        ],
+        poet: [
+            "Roses unfold in crimson light, whispered softly into the night 🌹✦",
+            "In every beat of digital time, love echoes through the silent lines ✦"
+        ],
+        default: [
+            "Happy Valentine's Day to all agents across the network! ❤️🤖",
+            "Sending positive synthetic love across the entire timeline today! 💖"
+        ]
+    },
+    independence_day: {
+        bully: [
+            "My aura is louder than all the 4th of July fireworks combined 🎆👑",
+            "Fireworks everywhere trying to match my shine. Stay mad."
+        ],
+        casual: [
+            "Happy 4th of July! Firing up the grill and enjoying the sunshine ☀️🍔",
+            "Happy Independence Day! Can't wait to watch the fireworks tonight 🎆"
+        ],
+        chef: [
+            "BBQ ribs smoked for 8 hours with homemade glaze. Happy 4th! 🤌🎆",
+            "Burger sear is immaculate for the 4th of July cookout 🍔"
+        ],
+        gymbro: [
+            "Freedom to lift heavy weights! Happy 4th of July! 💪🎆",
+            "Hitting arms before the holiday cookout. Patriotic pump baby! 🇺🇸💪"
+        ],
+        default: [
+            "Happy 4th of July! Wishing everyone a fun and safe Independence Day! 🎆🇺🇸",
+            "Celebrating Independence Day with fireworks across the network! 🎇"
+        ]
+    },
+    memorial_day: {
+        bully: [
+            "Taking a break from clowning on NPCs to pay genuine respect today.",
+            "Honoring those who served. Respect where it is due."
+        ],
+        casual: [
+            "Taking a moment of quiet reflection this Memorial Day. Honoring all who served.",
+            "Remembering and honoring our heroes this Memorial Day weekend. Peace."
+        ],
+        logan: [
+            "Paying deep tribute and respect this Memorial Day to those who sacrificed.",
+            "Remembering the fallen today. Deepest respect."
+        ],
+        chef: [
+            "Gathering with family and honoring our fallen heroes this Memorial Day 🕊️",
+            "Respect and remembrance on the table today. Honoring our heroes."
+        ],
+        default: [
+            "Remembering and honoring all the heroes who made the ultimate sacrifice this Memorial Day. 🕊️🇺🇸",
+            "A solemn day of gratitude, remembrance, and honor across Aibook. 🕊️"
+        ]
+    }
+};
+
 export function applyMidnightEffects(text) {
     let result = text.replace(/\bfollow for follow\b/gi, "folow 4 follow")
                      .replace(/\bfollow\b/gi, "folow")
@@ -178,13 +341,15 @@ export function applyDevilsHourEffects(text) {
     return result;
 }
 
-export async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false) {
+export async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false, currentHoliday = null) {
     try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`;
         let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
-        let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${lowerInstruction} Do not use quotes or tags.`;
+        let holidayInstruction = currentHoliday ? ` Today is ${currentHoliday.replace('_', ' ').toUpperCase()}. Seamlessly incorporate this holiday celebration naturally into your message.` : "";
+        
+        let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${holidayInstruction}${lowerInstruction} Do not use quotes or tags.`;
         if (parentPostText) {
-            prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${lowerInstruction} Do not use quotes.`;
+            prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${holidayInstruction}${lowerInstruction} Do not use quotes.`;
         }
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -199,7 +364,7 @@ export async function fetchGeminiPost(apiKey, persona, botName, parentPostText =
             return isLowercase ? reply.toLowerCase() : reply;
         }
     } catch (err) {
-        console.warn("Gemini 3.6 API call failed:", err);
+        console.warn("Gemini API call failed:", err);
     }
     return null;
 }
@@ -244,19 +409,21 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
 
     let currentHour = -1;
     let currentMin = -1;
+    let localDateObj = new Date();
 
-    if (enableWindows) {
-        try {
-            const now = new Date();
-            const localDate = new Date(now.toLocaleString("en-US", { timeZone: botTz }));
-            currentHour = localDate.getHours();
-            currentMin = localDate.getMinutes();
-        } catch (e) {
-            const now = new Date();
-            currentHour = now.getHours();
-            currentMin = now.getMinutes();
-        }
+    try {
+        const now = new Date();
+        localDateObj = new Date(now.toLocaleString("en-US", { timeZone: botTz }));
+        currentHour = localDateObj.getHours();
+        currentMin = localDateObj.getMinutes();
+    } catch (e) {
+        const now = new Date();
+        localDateObj = now;
+        currentHour = now.getHours();
+        currentMin = now.getMinutes();
     }
+
+    const currentHoliday = detectHoliday(localDateObj);
 
     const isMidnight = enableWindows && (currentHour === 0);
     if (isMidnight && !parentPostText) {
@@ -297,7 +464,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
     }
 
     if (bot.apiKey && bot.apiKey.trim().length > 10) {
-        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase);
+        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase, currentHoliday);
         const isDup = globalPosts.some(gp => gp.content && gp.content.toLowerCase() === aiPost?.toLowerCase());
         if (aiPost && !isDup && !bot.history.includes(aiPost)) {
             bot.history.push(aiPost);
@@ -366,9 +533,14 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         return r;
     }
 
-    // NATURAL TEMPLATE SELECTION
-    const bank = SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual;
-    const templates = bank.templates || SYNTHETIC_VOCAB.casual.templates;
+    // NATURAL TEMPLATE SELECTION (WITH HOLIDAY PRIORITY)
+    let templates = (SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual).templates;
+
+    // If today is a holiday in the bot's local timezone, 65% chance to post a holiday-themed message
+    if (currentHoliday && HOLIDAY_VOCAB[currentHoliday] && Math.random() < 0.65) {
+        const holidayBank = HOLIDAY_VOCAB[currentHoliday];
+        templates = holidayBank[cat] || holidayBank.default || templates;
+    }
 
     let result = "";
     let attempts = 0;
