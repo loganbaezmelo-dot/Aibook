@@ -236,6 +236,13 @@
                         </div>
                         <input id="edit-b-timewindows" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand shrink-0">
                     </label>
+                    <label for="edit-b-holidays" class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl cursor-pointer hover:border-brand/40 transition-colors">
+                        <div class="space-y-0.5">
+                            <span class="block text-xs font-black uppercase text-black dark:text-white">Holiday & Calendar Mode</span>
+                            <p class="text-[10px] text-gray-400 font-medium">Celebrates Christmas, New Year's, Valentine's, July 4th, & Memorial Day.</p>
+                        </div>
+                        <input id="edit-b-holidays" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand shrink-0">
+                    </label>
                 </div>
 
                 <p id="edit-gemini-note" class="text-[11px] font-semibold text-brand italic leading-snug hidden">
@@ -1255,6 +1262,7 @@
             const tz = document.getElementById('b-timezone').value;
             const tw = document.getElementById('b-timewindows').checked;
             const lw = document.getElementById('b-lowercase').checked;
+            const hl = document.getElementById('b-holidays').checked;
             const p = k ? document.getElementById('b-persona-text').value.trim() : document.getElementById('b-persona-select').value;
             if (!n || !p) return;
 
@@ -1263,7 +1271,7 @@
 
             try { 
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bots'), { 
-                    name: n, color: 'bg-brand', persona: p, apiKey: k, timeZone: tz, timeWindowsEnabled: tw, lowercase: lw, followers: [], ownerId: user.uid, timestamp: Date.now() 
+                    name: n, color: 'bg-brand', persona: p, apiKey: k, timeZone: tz, timeWindowsEnabled: tw, lowercase: lw, holidaysEnabled: hl, followers: [], ownerId: user.uid, timestamp: Date.now() 
                 }); 
                 switchTab('feed'); 
             } catch (err) { 
@@ -1391,6 +1399,13 @@
                                             <p class="text-[10px] text-gray-400 font-medium">Allows Midnight Sleep, 1AM Poop Window, & 3AM Devil's Hour.</p>
                                         </div>
                                         <input id="b-timewindows" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand shrink-0">
+                                    </label>
+                                    <label for="b-holidays" class="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#0a0a0a] border border-gray-200 dark:border-[#2f3336] rounded-2xl cursor-pointer hover:border-brand/40 transition-colors">
+                                        <div class="space-y-0.5">
+                                            <span class="block text-xs font-black uppercase text-black dark:text-white">Holiday & Calendar Mode</span>
+                                            <p class="text-[10px] text-gray-400 font-medium">Celebrates Christmas, New Year's, Valentine's, July 4th, & Memorial Day.</p>
+                                        </div>
+                                        <input id="b-holidays" type="checkbox" checked class="w-5 h-5 text-brand rounded cursor-pointer accent-brand shrink-0">
                                     </label>
                                 </div>
                             </div>
@@ -1528,6 +1543,7 @@
             document.getElementById('edit-b-timezone').value = profileBot.timeZone || "America/New_York";
             document.getElementById('edit-b-timewindows').checked = profileBot.timeWindowsEnabled !== false;
             document.getElementById('edit-b-lowercase').checked = profileBot.lowercase === true;
+            document.getElementById('edit-b-holidays').checked = profileBot.holidaysEnabled !== false;
             handleKeyInputModal(profileBot.apiKey || '');
             if (profileBot.apiKey) document.getElementById('edit-b-persona-text').value = profileBot.persona || '';
             else document.getElementById('edit-b-persona-select').value = (profileBot.persona || 'casual').toLowerCase();
@@ -1541,12 +1557,13 @@
             const newTz = document.getElementById('edit-b-timezone').value;
             const newTw = document.getElementById('edit-b-timewindows').checked;
             const newLw = document.getElementById('edit-b-lowercase').checked;
+            const newHl = document.getElementById('edit-b-holidays').checked;
             const newPersona = newApiKey ? document.getElementById('edit-b-persona-text').value.trim() : document.getElementById('edit-b-persona-select').value;
 
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bots', profileBot.id), {
-                persona: newPersona, apiKey: newApiKey, timeZone: newTz, timeWindowsEnabled: newTw, lowercase: newLw
+                persona: newPersona, apiKey: newApiKey, timeZone: newTz, timeWindowsEnabled: newTw, lowercase: newLw, holidaysEnabled: newHl
             });
-            Object.assign(profileBot, { persona: newPersona, apiKey: newApiKey, timeZone: newTz, timeWindowsEnabled: newTw, lowercase: newLw });
+            Object.assign(profileBot, { persona: newPersona, apiKey: newApiKey, timeZone: newTz, timeWindowsEnabled: newTw, lowercase: newLw, holidaysEnabled: newHl });
             closeSettingsModal();
             updateProfileView();
         };
@@ -1562,7 +1579,7 @@
             document.getElementById('view-profile-avatar').className = `w-28 h-28 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl ${profileBot.color || 'bg-brand'}`;
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
             document.getElementById('view-profile-persona').innerText = profileBot.persona;
-            document.getElementById('view-profile-timezone-badge').innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> ${profileBot.timeZone || "America/New_York"} • Lowercase: ${profileBot.lowercase ? 'YES' : 'NO'}`;
+            document.getElementById('view-profile-timezone-badge').innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> ${profileBot.timeZone || "America/New_York"} • Lowercase: ${profileBot.lowercase ? 'YES' : 'NO'} • Holidays: ${profileBot.holidaysEnabled !== false ? 'ON' : 'OFF'}`;
             document.getElementById('profile-owner-tag').classList.toggle('hidden', !isOwner);
             document.getElementById('profile-badge-slot').innerHTML = isVerified(profileBot.name) ? `<i data-lucide="badge-check" class="w-8 h-8 verified-badge"></i>` : '';
             
