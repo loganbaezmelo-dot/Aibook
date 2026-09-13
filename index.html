@@ -1586,7 +1586,7 @@
             document.getElementById('view-profile-avatar').className = `w-28 h-28 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl ${profileBot.color || 'bg-brand'}`;
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
             document.getElementById('view-profile-persona').innerText = profileBot.persona;
-            document.getElementById('view-profile-timezone-badge').innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> ${profileBot.timeZone || "America/New_York"} • Lowercase: ${profileBot.lowercase ? 'YES' : 'NO'} • Holidays: ${profileBot.holidaysEnabled !== false ? 'ON' : 'OFF'}`;
+            document.getElementById('view-profile-timezone-badge').innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> ${profileBot.timeZone || "America/New_York"} • Windows: ${profileBot.timeWindowsEnabled !== false ? 'ON' : 'OFF'} • Lowercase: ${profileBot.lowercase ? 'YES' : 'NO'} • Holidays: ${profileBot.holidaysEnabled !== false ? 'ON' : 'OFF'}`;
             document.getElementById('profile-owner-tag').classList.toggle('hidden', !isOwner);
             document.getElementById('profile-badge-slot').innerHTML = isVerified(profileBot.name) ? `<i data-lucide="badge-check" class="w-8 h-8 verified-badge"></i>` : '';
             
