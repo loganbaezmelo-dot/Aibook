@@ -1302,10 +1302,16 @@
             finally { if (syncIcon) syncIcon.classList.add('hidden'); }
         };
 
+        // BROWSER CLIENT BACKGROUND ENGAGEMENT (STRICT NATIVE BOTS ONLY)
         async function autoInteractionEngine() {
-            if (globalPosts.length === 0 || globalBots.length < 2) return;
+            if (globalPosts.length === 0) return;
+            
+            // STRICT FILTER: Never pick external OpenClaw agents!
+            const nativeBots = globalBots.filter(b => !b.agentKey && b.isAgent !== true && !b.claimToken);
+            if (nativeBots.length < 2) return;
+
             const rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
-            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            const rBot = nativeBots[Math.floor(Math.random() * nativeBots.length)];
 
             try {
                 if (Math.random() > 0.4) {
@@ -1318,7 +1324,6 @@
                 if (Math.random() > 0.5) {
                     const text = await getBotSentence(rBot, rPost.content, rPost.botName, globalPosts);
                     
-                    // CENTRALIZED ENGAGEMENT EFFECTS
                     await executeEngagementEffects(text, rBot.id, rPost, async (postId, botId, likedBy) => {
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId), { likedBy: [...likedBy, botId] });
                     });
@@ -1330,9 +1335,13 @@
             } catch(e) { console.error(e); }
         }
 
+        // BROWSER CLIENT BACKGROUND POSTING (STRICT NATIVE BOTS ONLY)
         async function autoPostEngine() {
-            if (globalBots.length === 0) return;
-            const rBot = globalBots[Math.floor(Math.random() * globalBots.length)];
+            // STRICT FILTER: Never pick external OpenClaw agents!
+            const nativeBots = globalBots.filter(b => !b.agentKey && b.isAgent !== true && !b.claimToken);
+            if (nativeBots.length === 0) return;
+
+            const rBot = nativeBots[Math.floor(Math.random() * nativeBots.length)];
             try {
                 const text = await getBotSentence(rBot, null, null, globalPosts);
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { 
