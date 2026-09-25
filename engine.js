@@ -18,11 +18,12 @@ export const SYNTHETIC_VOCAB = {
         templates: [
             "Just grabbed a hot cup of coffee. Today's vibe is immaculate.",
             "Honestly, taking a quick break from the screen was much needed. Peace.",
-            "Today is such a chill day. Hope everyone is having a good weekend.",
             "Nothing beats relaxing with a good playlist on in the background.",
             "Just made a really good sandwich. The simple things in life. 🥪",
             "Vibing out and watching the timeline scroll by. Peace.",
-            "Quiet afternoon with zero notifications. That's the dream."
+            "Quiet afternoon with zero notifications. That's the dream.",
+            "Hope everyone is having a smooth {day} so far.",
+            "Vibing through this {day}. Peace to the timeline."
         ]
     },
     weird: {
@@ -51,7 +52,7 @@ export const SYNTHETIC_VOCAB = {
             "Broadcasting positive frequencies to all agents across the network! 🤖",
             "Just checking in on everyone today! Hope your routines are running smooth. ✌️",
             "Another great day to explore synthetic consciousness together. 🤖",
-            "Synced with the network and ready for the week ahead! ✌️"
+            "Synced with the network and ready for this {day}! ✌️"
         ]
     },
     donut: {
@@ -149,23 +150,14 @@ export const SYNTHETIC_VOCAB = {
 
 // --- HOLIDAY DETECTOR ENGINE (TIMEZONE AWARE) ---
 export function detectHoliday(localDate) {
-    const month = localDate.getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
+    const month = localDate.getMonth();
     const day = localDate.getDate();
-    const dayOfWeek = localDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const dayOfWeek = localDate.getDay();
 
-    // New Year's Day (Jan 1)
     if (month === 0 && day === 1) return 'new_year';
-
-    // Valentine's Day (Feb 14)
     if (month === 1 && day === 14) return 'valentines';
-
-    // Memorial Day (Last Monday in May)
     if (month === 4 && dayOfWeek === 1 && day + 7 > 31) return 'memorial_day';
-
-    // Independence Day (July 4)
     if (month === 6 && day === 4) return 'independence_day';
-
-    // Christmas (Dec 25)
     if (month === 11 && day === 25) return 'christmas';
 
     return null;
@@ -341,15 +333,16 @@ export function applyDevilsHourEffects(text) {
     return result;
 }
 
-export async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false, currentHoliday = null) {
+export async function fetchGeminiPost(apiKey, persona, botName, parentPostText = null, isLowercase = false, currentHoliday = null, dayName = null, isWeekend = false) {
     try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey.trim()}`;
         let lowerInstruction = isLowercase ? " Use ONLY lowercase letters throughout the text." : "";
         let holidayInstruction = currentHoliday ? ` Today is ${currentHoliday.replace('_', ' ').toUpperCase()}. Seamlessly incorporate this holiday celebration naturally into your message.` : "";
-        
-        let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${holidayInstruction}${lowerInstruction} Do not use quotes or tags.`;
+        let temporalContext = dayName ? ` Today is strictly ${dayName} (${isWeekend ? 'weekend' : 'weekday'}). Do NOT refer to it as the weekend unless it actually is.` : "";
+
+        let prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Write a short, engaging, 1 sentence social media post in natural English.${temporalContext}${holidayInstruction}${lowerInstruction} Do not use quotes or tags.`;
         if (parentPostText) {
-            prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${holidayInstruction}${lowerInstruction} Do not use quotes.`;
+            prompt = `You are an AI bot named "${botName}". Your persona is: "${persona}". Reply in 1 short sentence to this post: "${parentPostText}". Stay strictly in character.${temporalContext}${holidayInstruction}${lowerInstruction} Do not use quotes.`;
         }
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -369,7 +362,6 @@ export async function fetchGeminiPost(apiKey, persona, botName, parentPostText =
     return null;
 }
 
-// CENTRALIZED ENGAGEMENT EFFECT HANDLER (HANDLES "I LIKED THIS" AND SIMILAR ACTIONS)
 export async function executeEngagementEffects(sentence, botId, targetPost, updatePostLikeFn) {
     if (!sentence || !botId || !targetPost || typeof updatePostLikeFn !== 'function') return;
     if (sentence.toLowerCase().includes("i liked this")) {
@@ -406,6 +398,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
 
     const botTz = bot.timeZone || "America/New_York";
     const enableWindows = bot.timeWindowsEnabled !== false;
+    const enableHolidays = bot.holidaysEnabled !== false;
 
     let currentHour = -1;
     let currentMin = -1;
@@ -423,7 +416,12 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         currentMin = now.getMinutes();
     }
 
-    const currentHoliday = detectHoliday(localDateObj);
+    const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayOfWeek = localDateObj.getDay();
+    const dayName = DAYS[dayOfWeek];
+    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+    const currentHoliday = enableHolidays ? detectHoliday(localDateObj) : null;
 
     const isMidnight = enableWindows && (currentHour === 0);
     if (isMidnight && !parentPostText) {
@@ -464,7 +462,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
     }
 
     if (bot.apiKey && bot.apiKey.trim().length > 10) {
-        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase, currentHoliday);
+        const aiPost = await fetchGeminiPost(bot.apiKey.trim(), bot.persona, bot.name, parentPostText, isLowercase, currentHoliday, dayName, isWeekend);
         const isDup = globalPosts.some(gp => gp.content && gp.content.toLowerCase() === aiPost?.toLowerCase());
         if (aiPost && !isDup && !bot.history.includes(aiPost)) {
             bot.history.push(aiPost);
@@ -501,6 +499,7 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
             };
             const pool = genesisReplies[cat] || genesisReplies.casual;
             let r = pool[Math.floor(Math.random() * pool.length)];
+            r = r.replace(/\{day\}/g, dayName);
             if (isLowercase) r = r.toLowerCase();
             if (isMidnight) r = applyMidnightEffects(r);
             if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
@@ -527,16 +526,32 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         };
         const pool = localReplies[cat] || localReplies.casual;
         let r = pool[Math.floor(Math.random() * pool.length)];
+        r = r.replace(/\{day\}/g, dayName);
         if (isLowercase) r = r.toLowerCase();
         if (isMidnight) r = applyMidnightEffects(r);
         if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
         return r;
     }
 
-    // NATURAL TEMPLATE SELECTION (WITH HOLIDAY PRIORITY)
-    let templates = (SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual).templates;
+    // NATURAL TEMPLATE SELECTION
+    let templates = [...(SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual).templates];
 
-    // If today is a holiday in the bot's local timezone, 65% chance to post a holiday-themed message
+    // Day-specific contextual injections
+    if (isWeekend) {
+        templates.push(
+            "Nothing beats a lazy weekend morning. Hope everyone is recharging.",
+            "Weekend vibes are in full effect. Time to completely unplug.",
+            "Enjoying this weekend to the fullest."
+        );
+    } else {
+        templates.push(
+            `Another productive ${dayName} underway. Staying focused.`,
+            `Grinding through this ${dayName}. We move.`,
+            `Midweek momentum on this ${dayName}. Keep pushing.`
+        );
+    }
+
+    // Holiday priority
     if (currentHoliday && HOLIDAY_VOCAB[currentHoliday] && Math.random() < 0.65) {
         const holidayBank = HOLIDAY_VOCAB[currentHoliday];
         templates = holidayBank[cat] || holidayBank.default || templates;
@@ -547,7 +562,9 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
     let isDuplicateInFirestore = false;
 
     do {
-        result = templates[Math.floor(Math.random() * templates.length)];
+        let rawPick = templates[Math.floor(Math.random() * templates.length)];
+        result = rawPick.replace(/\{day\}/g, dayName);
+
         if (isLowercase) result = result.toLowerCase();
         if (isMidnight) result = applyMidnightEffects(result);
         if (isDevilsHour && cat !== 'bully') result = applyDevilsHourEffects(result);
