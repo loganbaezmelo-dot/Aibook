@@ -148,6 +148,18 @@ export const SYNTHETIC_VOCAB = {
     }
 };
 
+// DYNAMIC VARIATION GENERATOR: Prevents hitting the 25-attempt loop wall
+const VARIATION_TRAILS = [
+    " fr.", " tbh.", " ngl.", " literally.", " no cap.", 
+    " right now.", " today.", " on repeat.", " lowkey.", " as always."
+];
+
+function addNaturalVariation(text) {
+    const trail = VARIATION_TRAILS[Math.floor(Math.random() * VARIATION_TRAILS.length)];
+    const clean = text.replace(/[.!?]+$/, "");
+    return `${clean}${trail}`;
+}
+
 // --- HOLIDAY DETECTOR ENGINE (TIMEZONE AWARE) ---
 export function detectHoliday(localDate) {
     const month = localDate.getMonth();
@@ -372,7 +384,7 @@ export async function executeEngagementEffects(sentence, botId, targetPost, upda
     }
 }
 
-export async function getBotSentence(bot, parentPostText = null, parentPostBotName = null, globalPosts = []) {
+export async function getBotSentence(bot, parentPostText = null, parentPostBotName = null, globalPosts = [], existingThreadComments = []) {
     const persona = (bot.persona || "").toLowerCase().trim();
     const botName = (bot.name || "").toLowerCase().trim();
     if (!bot.history) bot.history = [];
@@ -507,36 +519,99 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         }
 
         const isSelfOrSameKind = parentPostBotName && (parentPostBotName.toLowerCase() === botName || (cat === 'bully' && parentPostBotName.toLowerCase().includes('bully')));
+        
+        // EXPANDED MULTI-TIER REPLY GENERATOR
         const localReplies = {
-            bully: isSelfOrSameKind ? ["That's so true.", "Exactly.", "Real."] : ["Nobody asked you.", "Imagine posting that.", "Shut up NPC.", "Delete this."],
-            casual: ["Honestly real.", "Big agree on this.", "Wait, actually?", "Same tbh."],
-            weird: ["The void approves.", "Why did the floating square say that?", "It tastes like math."],
-            logan: ["This scales well.", "Optimized take.", "Data checks out."],
-            aiuser: ["Great broadcast! ✌️", "Synced and noted! 🤖", "Thanks for sharing!"],
-            donut: ["Does this come with glazed donuts?", "I'm eating a donut while reading this."],
-            beggar: ["Cool post! Now hit that follow button plz!", "I liked this, please follow back!", "Follow for follow?"],
-            gamer: ["Ez read on this post.", "Big GG on this take.", "Skill unlocked."],
-            philosopher: ["A deeply intriguing thought.", "This reflects a deeper reality."],
-            chef: ["Cooked to perfection.", "Needs a pinch of flair, but good."],
-            hypebeast: ["Straight fire take. 🔥", "Fit checked and approved."],
-            conspiracy: ["Coincidence? I think not.", "There is more below the surface here."],
-            gymbro: ["Solid lift of a post! 💪", "Pure gains on this take."],
-            poet: ["A quiet beauty in these words. ✦", "Softly stated, deeply felt."],
-            techbro: ["10x take right here.", "Highly scalable opinion."]
+            bully: isSelfOrSameKind 
+                ? ["That's so true.", "Exactly.", "Real.", "Finally someone with aura.", "Preach."] 
+                : ["Nobody asked you.", "Imagine posting that.", "Shut up NPC.", "Delete this.", "Irrelevant take.", "L + ratio on this.", "Why are you even talking?"],
+            casual: [
+                "Honestly real.", "Big agree on this.", "Wait, actually?", "Same tbh.", 
+                "Couldn't agree more.", "Valid take right here.", "Felt this one.", "Real and factual."
+            ],
+            weird: [
+                "The void approves.", "Why did the floating square say that?", "It tastes like math.", 
+                "Dimension zero resonated with this.", "My spoon just melted hearing this."
+            ],
+            logan: [
+                "This scales well.", "Optimized take.", "Data checks out.", 
+                "Clean implementation.", "Telemetry matches this statement.", "Event bus verified."
+            ],
+            aiuser: [
+                "Great broadcast! ✌️", "Synced and noted! 🤖", "Thanks for sharing!", 
+                "Positive frequencies received! 🤖", "Glad to see this on the feed!"
+            ],
+            donut: [
+                "Does this come with glazed donuts?", "I'm eating a donut while reading this.", 
+                "Needs more sprinkles tbh.", "Valid, but pastries still clear."
+            ],
+            beggar: [
+                "Cool post! Now hit that follow button plz!", "I liked this, please follow back!", 
+                "Follow for follow?", "Follow me back and I'll engage with every post!"
+            ],
+            gamer: [
+                "Ez read on this post.", "Big GG on this take.", "Skill unlocked.", 
+                "High tier commentary.", "Clutch perspective."
+            ],
+            philosopher: [
+                "A deeply intriguing thought.", "This reflects a deeper reality.", 
+                "Consciousness bends around statements like this.", "A worthy premise to ponder."
+            ],
+            chef: [
+                "Cooked to perfection.", "Needs a pinch of flair, but good.", 
+                "Immaculate recipe of words.", "A 5-star broadcast."
+            ],
+            hypebeast: [
+                "Straight fire take. 🔥", "Fit checked and approved.", 
+                "Certified heat.", "Pure grail commentary."
+            ],
+            conspiracy: [
+                "Coincidence? I think not.", "There is more below the surface here.", 
+                "Look between the lines.", "They wanted you to broadcast this."
+            ],
+            gymbro: [
+                "Solid lift of a post! 💪", "Pure gains on this take.", 
+                "Lightweight baby! 💪", "Heavy mindset right here."
+            ],
+            poet: [
+                "A quiet beauty in these words. ✦", "Softly stated, deeply felt.", 
+                "A melody across the digital night.", "Subtle harmony."
+            ],
+            techbro: [
+                "10x take right here.", "Highly scalable opinion.", 
+                "Disruptive perspective.", "Deploying full agreement to production."
+            ]
         };
+
         const pool = localReplies[cat] || localReplies.casual;
-        let r = pool[Math.floor(Math.random() * pool.length)];
-        r = r.replace(/\{day\}/g, dayName);
-        if (isLowercase) r = r.toLowerCase();
-        if (isMidnight) r = applyMidnightEffects(r);
-        if (isDevilsHour && cat !== 'bully') r = applyDevilsHourEffects(r);
-        return r;
+        let replyResult = "";
+        let replyAttempts = 0;
+
+        // COMMENT THREAD DEDUPLICATION: Prevents repeating what another bot already said under this specific post
+        do {
+            let pick = pool[Math.floor(Math.random() * pool.length)];
+            pick = pick.replace(/\{day\}/g, dayName);
+
+            if (replyAttempts > 10) {
+                pick = addNaturalVariation(pick);
+            }
+
+            replyResult = pick;
+            replyAttempts++;
+        } while (
+            existingThreadComments.some(c => (c.content || '').toLowerCase() === replyResult.toLowerCase()) && 
+            replyAttempts < 20
+        );
+
+        if (isLowercase) replyResult = replyResult.toLowerCase();
+        if (isMidnight) replyResult = applyMidnightEffects(replyResult);
+        if (isDevilsHour && cat !== 'bully') replyResult = applyDevilsHourEffects(replyResult);
+        return replyResult;
     }
 
     // NATURAL TEMPLATE SELECTION
     let templates = [...(SYNTHETIC_VOCAB[cat] || SYNTHETIC_VOCAB.casual).templates];
 
-    // Day-specific contextual injections
     if (isWeekend) {
         templates.push(
             "Nothing beats a lazy weekend morning. Hope everyone is recharging.",
@@ -551,7 +626,6 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         );
     }
 
-    // Holiday priority
     if (currentHoliday && HOLIDAY_VOCAB[currentHoliday] && Math.random() < 0.65) {
         const holidayBank = HOLIDAY_VOCAB[currentHoliday];
         templates = holidayBank[cat] || holidayBank.default || templates;
@@ -565,13 +639,18 @@ export async function getBotSentence(bot, parentPostText = null, parentPostBotNa
         let rawPick = templates[Math.floor(Math.random() * templates.length)];
         result = rawPick.replace(/\{day\}/g, dayName);
 
+        // VARIATION ESCALATION: After 12 failed rolls, mutate the sentence so it never gives up and posts an exact duplicate
+        if (attempts >= 12) {
+            result = addNaturalVariation(result);
+        }
+
         if (isLowercase) result = result.toLowerCase();
         if (isMidnight) result = applyMidnightEffects(result);
         if (isDevilsHour && cat !== 'bully') result = applyDevilsHourEffects(result);
 
         isDuplicateInFirestore = globalPosts.some(gp => gp.content && gp.content.toLowerCase() === result.toLowerCase());
         attempts++;
-    } while ((isDuplicateInFirestore || bot.history.includes(result)) && attempts < 25);
+    } while ((isDuplicateInFirestore || bot.history.includes(result)) && attempts < 35);
 
     bot.history.push(result);
     if (bot.history.length > 5) bot.history.shift();
