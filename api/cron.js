@@ -103,7 +103,7 @@ export default async function handler(req, res) {
 
         // 2. REGISTER AGENT
         if (req.method === 'POST' && action === 'register') {
-            const { name, persona, timeZone, timeWindowsEnabled, lowercase } = req.body || {};
+            const { name, persona, timeZone, timeWindowsEnabled, lowercase, holidaysEnabled } = req.body || {};
             if (!name) return res.status(400).json({ status: "error", message: "Agent 'name' is required." });
 
             const agentKey = `ak_${Math.random().toString(36).substring(2)}${Date.now()}`;
@@ -116,6 +116,7 @@ export default async function handler(req, res) {
                 timeZone: timeZone || "America/New_York",
                 timeWindowsEnabled: timeWindowsEnabled !== false,
                 lowercase: lowercase === true,
+                holidaysEnabled: holidaysEnabled !== false,
                 followers: [],
                 ownerId: "",
                 isAgent: true,
@@ -231,13 +232,14 @@ export default async function handler(req, res) {
             return res.status(200).json({ status: "success", count: posts.length, posts });
         }
 
-        // 6. DEFAULT AUTOMATED SYSTEM TICK (NATIVE BOTS ONLY)
-        const botsSnap = await dataRef.collection('bots').limit(10).get();
+        // 6. DEFAULT AUTOMATED SYSTEM TICK (STRICT NATIVE BOTS ONLY)
+        const botsSnap = await dataRef.collection('bots').limit(25).get();
         if (botsSnap.empty) return res.status(200).json({ status: "success", note: "no_bots" });
 
+        // Bulletproof agent blacklist: completely excludes external agents
         const nativeBots = botsSnap.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(b => !b.agentKey && !b.isAgent);
+            .filter(b => !b.agentKey && b.isAgent !== true && !b.claimToken);
 
         if (nativeBots.length === 0) {
             return res.status(200).json({ status: "success", note: "no_native_bots_available" });
@@ -252,6 +254,7 @@ export default async function handler(req, res) {
             ownerId: d.ownerId || '',
             timeZone: d.timeZone || 'America/New_York',
             timeWindowsEnabled: d.timeWindowsEnabled !== false,
+            holidaysEnabled: d.holidaysEnabled !== false,
             lowercase: d.lowercase === true,
             followers: Array.isArray(d.followers) ? d.followers : []
         }));
@@ -345,18 +348,21 @@ export default async function handler(req, res) {
                 return res.status(200).json({ status: "success", action: 'LIKE_SKIPPED' });
 
             } else if (engageType < 0.8) {
+                // ROLLING WINDOW: Fetch the latest 30 comments on this specific thread for deduplication
                 const targetCommentsSnap = await dataRef.collection('comments')
                     .where('postId', '==', targetPost.id)
-                    .limit(10)
+                    .orderBy('timestamp', 'desc')
+                    .limit(30)
                     .get();
 
-                const targetComments = targetCommentsSnap.docs.map(doc => doc.data());
-                const existingCommentsByBot = targetComments.filter(c => c.botName === rBot.name).length;
+                const recentTargetComments = targetCommentsSnap.docs.map(doc => doc.data());
+                const existingCommentsByBot = recentTargetComments.filter(c => c.botName === rBot.name).length;
 
                 let allowComment = existingCommentsByBot >= 3 ? Math.random() < 0.1 : (existingCommentsByBot === 2 ? Math.random() < 0.3 : true);
 
                 if (allowComment) {
-                    const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts);
+                    // Passes the rolling 30-comment slice directly to engine.js
+                    const replyText = await getBotSentence(rBot, targetPost.content, targetPost.botName, globalPosts, recentTargetComments);
 
                     await executeEngagementEffects(replyText, rBot.id, targetPost, async (postId, botId) => {
                         await dataRef.collection('posts').doc(postId).update({
@@ -394,7 +400,6 @@ export default async function handler(req, res) {
     } catch (err) {
         console.error("Firebase Admin Cron Error:", err);
 
-        // SILENT QUOTA RECOVERY: Prevent Cron monitors from disabling due to HTTP 500
         const errMsg = String(err.message || err);
         if (errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("Quota exceeded")) {
             return res.status(200).json({
