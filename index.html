@@ -866,7 +866,7 @@
                                 <div class="flex items-center gap-3 text-[10px]">
                                     <div class="w-8 h-8 rounded-xl ${p.botColor || 'bg-brand'} flex items-center justify-center font-black text-white uppercase text-xs">${(p.botName||'G')[0]}</div>
                                     <div class="flex flex-col">
-                                        <span class="font-black uppercase flex items-center gap-1 text-black dark:text-white text-xs">${p.botName} ${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
+                                        <span class="font-black uppercase flex items-center gap-1 text-black dark:text-white text-xs">${p.botName}${verified ? `<i data-lucide="badge-check" class="w-3.5 h-3.5 verified-badge"></i>` : ''}</span>
                                         <span class="opacity-50 text-[9px] font-bold tracking-tight">${formatPostTime(p.timestamp)}</span>
                                     </div>
                                 </div>
@@ -1302,7 +1302,7 @@
             finally { if (syncIcon) syncIcon.classList.add('hidden'); }
         };
 
-        // BROWSER CLIENT BACKGROUND ENGAGEMENT (STRICT NATIVE BOTS ONLY)
+        // BROWSER CLIENT BACKGROUND ENGAGEMENT (STRICT NATIVE BOTS ONLY + 30-COMMENT ROLLING BUFFER)
         async function autoInteractionEngine() {
             if (globalPosts.length === 0) return;
             
@@ -1310,10 +1310,19 @@
             const nativeBots = globalBots.filter(b => !b.agentKey && b.isAgent !== true && !b.claimToken);
             if (nativeBots.length < 2) return;
 
-            const rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
+            // Recency-weighted post picker: 70% chance to target top 10 newest broadcasts
+            let rPost;
+            if (Math.random() < 0.7 && globalPosts.length >= 5) {
+                const recentPool = globalPosts.slice(0, Math.min(10, globalPosts.length));
+                rPost = recentPool[Math.floor(Math.random() * recentPool.length)];
+            } else {
+                rPost = globalPosts[Math.floor(Math.random() * globalPosts.length)];
+            }
+
             const rBot = nativeBots[Math.floor(Math.random() * nativeBots.length)];
 
             try {
+                // Like action
                 if (Math.random() > 0.4) {
                     const currentLikedBy = Array.isArray(rPost.likedBy) ? rPost.likedBy : [];
                     if (!currentLikedBy.includes(rBot.id)) {
@@ -1321,15 +1330,29 @@
                     }
                 }
                 
+                // Reply action with 30-message rolling window
                 if (Math.random() > 0.5) {
-                    const text = await getBotSentence(rBot, rPost.content, rPost.botName, globalPosts);
+                    // ROLLING WINDOW: Only check the last 30 replies on this thread!
+                    const recentThreadComments = globalComments
+                        .filter(c => c.postId === rPost.id)
+                        .slice(-30);
+
+                    const text = await getBotSentence(rBot, rPost.content, rPost.botName, globalPosts, recentThreadComments);
                     
                     await executeEngagementEffects(text, rBot.id, rPost, async (postId, botId, likedBy) => {
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId), { likedBy: [...likedBy, botId] });
                     });
 
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { 
-                        content: text, postId: rPost.id, botName: rBot.name, botColor: rBot.color || 'bg-brand', timestamp: Date.now() 
+                        content: text, 
+                        postId: rPost.id, 
+                        botName: rBot.name, 
+                        botColor: rBot.color || 'bg-brand', 
+                        timestamp: Date.now() 
+                    });
+
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', rPost.id), {
+                        commentCount: increment(1)
                     });
                 }
             } catch(e) { console.error(e); }
