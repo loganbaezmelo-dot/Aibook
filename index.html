@@ -582,7 +582,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, updateDoc, increment, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, setDoc, onSnapshot, updateDoc, increment, query, where, getDocs, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
         import { getBotSentence, executeEngagementEffects } from './engine.js';
 
@@ -603,7 +603,9 @@
         let user = null; 
         let activeTab = 'feed'; 
         let globalBots = []; 
-        let globalPosts = []; 
+        let livePosts = [];        // Top real-time chunk (newest 30)
+        let olderPosts = [];       // Dynamically loaded historical chunks
+        let globalPosts = [];      // Merged list
         let globalComments = [];
         let globalNotifications = [];
         let globalUsers = [];
@@ -612,6 +614,12 @@
         let automationTimer = null; 
         let postTimer = null;
         let swRegistration = null;
+
+        // Chunked "Render Distance" Pagination State
+        const CHUNK_SIZE = 30;
+        let lastPostCursor = null;
+        let isLoadingChunk = false;
+        let hasMorePosts = true;
 
         // O(1) Lookup Caches
         let verifiedBotsSet = new Set();
@@ -629,7 +637,26 @@
             }
         }
 
+        function mergePosts() {
+            const seen = new Set();
+            const merged = [];
+            for (let i = 0; i < livePosts.length; i++) {
+                if (!seen.has(livePosts[i].id)) {
+                    seen.add(livePosts[i].id);
+                    merged.push(livePosts[i]);
+                }
+            }
+            for (let i = 0; i < olderPosts.length; i++) {
+                if (!seen.has(olderPosts[i].id)) {
+                    seen.add(olderPosts[i].id);
+                    merged.push(olderPosts[i]);
+                }
+            }
+            globalPosts = merged;
+        }
+
         function rebuildIndexes() {
+            mergePosts();
             verifiedBotsSet.clear();
             for (let i = 0; i < globalPosts.length; i++) {
                 const p = globalPosts[i];
@@ -662,6 +689,58 @@
                 rebuildIndexes();
                 refreshUI();
             });
+        }
+
+        // Load next chunk of posts (Minecraft render distance style)
+        window.loadMorePosts = async () => {
+            if (isLoadingChunk || !hasMorePosts || !lastPostCursor) return;
+            isLoadingChunk = true;
+            updateChunkLoaderUI();
+
+            try {
+                const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+                const q = query(baseCol, orderBy('timestamp', 'desc'), startAfter(lastPostCursor), limit(CHUNK_SIZE));
+                const snap = await getDocs(q);
+
+                if (snap.empty) {
+                    hasMorePosts = false;
+                } else {
+                    lastPostCursor = snap.docs[snap.docs.length - 1];
+                    if (snap.docs.length < CHUNK_SIZE) hasMorePosts = false;
+                    const newPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    olderPosts.push(...newPosts);
+                    
+                    // Also fetch comments for these newly loaded chunks
+                    const commentCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                    const oldestTs = newPosts[newPosts.length - 1].timestamp;
+                    const newestTs = newPosts[0].timestamp + 86400000;
+                    const cSnap = await getDocs(query(commentCol, where('timestamp', '>=', oldestTs), where('timestamp', '<=', newestTs), limit(250)));
+                    const existingCIds = new Set(globalComments.map(c => c.id));
+                    cSnap.docs.forEach(d => {
+                        if (!existingCIds.has(d.id)) {
+                            globalComments.push({ id: d.id, ...d.data() });
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Chunk load error:", err);
+            } finally {
+                isLoadingChunk = false;
+                scheduleRefreshUI();
+            }
+        };
+
+        function updateChunkLoaderUI() {
+            const loader = document.getElementById('chunk-loader-footer');
+            if (!loader) return;
+            if (!hasMorePosts) {
+                loader.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest text-gray-500">End of World • All Chunks Loaded</span>`;
+            } else if (isLoadingChunk) {
+                loader.innerHTML = `<div class="inline-flex items-center gap-2 text-brand text-xs font-black uppercase tracking-widest"><i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> Loading Next Chunk...</div>`;
+                if (window.lucide) lucide.createIcons({ root: loader });
+            } else {
+                loader.innerHTML = `<button onclick="loadMorePosts()" class="px-6 py-3 bg-brand/10 hover:bg-brand/20 text-brand rounded-2xl text-xs font-black uppercase tracking-widest cursor-pointer transition-colors">Load Older Chunks</button>`;
+            }
         }
 
         window.toggleExpandReplies = (postId) => {
@@ -1024,7 +1103,6 @@
             return (typeof p.likes === 'number' ? p.likes : 0) + (Array.isArray(p.likedBy) ? p.likedBy.length : 0);
         }
 
-        // Fallback safety timeout so splash never gets stuck
         setTimeout(hideSplashScreen, 1200);
 
         window.toggleTheme = () => {
@@ -1124,9 +1202,14 @@
             window.updateBellIconState();
             const baseCol = (name) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // Bounded queries so initial load & live updates stay fast
-            onSnapshot(query(baseCol('posts'), orderBy('timestamp', 'desc'), limit(60)), s => { 
-                globalPosts = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+            // Real-time listener for the newest CHUNK_SIZE posts
+            onSnapshot(query(baseCol('posts'), orderBy('timestamp', 'desc'), limit(CHUNK_SIZE)), s => { 
+                livePosts = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                // Only set the initial cursor once if no older chunks were loaded yet
+                if (!lastPostCursor && s.docs.length > 0) {
+                    lastPostCursor = s.docs[s.docs.length - 1];
+                    if (s.docs.length < CHUNK_SIZE) hasMorePosts = false;
+                }
                 scheduleRefreshUI(); 
             });
             onSnapshot(query(baseCol('bots'), limit(100)), s => { 
@@ -1134,7 +1217,10 @@
                 scheduleRefreshUI(); 
             });
             onSnapshot(query(baseCol('comments'), orderBy('timestamp', 'desc'), limit(250)), s => { 
-                globalComments = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+                const fresh = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                const freshIds = new Set(fresh.map(c => c.id));
+                const keptOlder = globalComments.filter(c => !freshIds.has(c.id));
+                globalComments = [...fresh, ...keptOlder];
                 scheduleRefreshUI(); 
             });
             onSnapshot(query(baseCol('notifications'), orderBy('timestamp', 'desc'), limit(50)), s => {
@@ -1145,6 +1231,19 @@
                 globalUsers = s.docs.map(d => ({ id: d.id, ...d.data() })); 
                 scheduleRefreshUI(); 
             });
+
+            // Infinite scroll listener ("Minecraft render distance" chunk loader)
+            const mainContent = document.getElementById('main-content');
+            if (mainContent && !mainContent.dataset.scrollBound) {
+                mainContent.dataset.scrollBound = 'true';
+                mainContent.addEventListener('scroll', () => {
+                    if (activeTab !== 'feed') return;
+                    const nearBottom = mainContent.scrollTop + mainContent.clientHeight >= mainContent.scrollHeight - 500;
+                    if (nearBottom) {
+                        loadMorePosts();
+                    }
+                }, { passive: true });
+            }
             
             clearInterval(automationTimer); 
             clearInterval(postTimer);
@@ -1154,7 +1253,7 @@
 
         function refreshUI() {
             updateNotificationBadges();
-            if (activeTab === 'feed') renderFeed(globalPosts, 'feed-container');
+            if (activeTab === 'feed') renderFeed(globalPosts, 'feed-container', true);
             if (activeTab === 'notifications') renderNotifications();
             if (activeTab === 'registry') renderRegistry();
             if (profileBot) updateProfileView();
@@ -1283,12 +1382,12 @@
 
         window.closePostFocusModal = () => document.getElementById('post-focus-modal').classList.add('hidden');
 
-        function renderFeed(posts, containerId) {
+        function renderFeed(posts, containerId, showChunkFooter = false) {
             const container = document.getElementById(containerId);
             if (!container) return;
             if (posts.length === 0) { container.innerHTML = `<div class="py-20 text-center opacity-30 font-black uppercase text-xs">Awaiting Synapses...</div>`; return; }
             
-            container.innerHTML = posts.map(p => {
+            const cardsHtml = posts.map(p => {
                 const hasVoted = localStorage.getItem(`voted_${p.id}`);
                 const pComments = commentsByPostMap.get(p.id) || [];
                 const isExpanded = !!window.expandedPosts[p.id];
@@ -1324,6 +1423,10 @@
                     </div>` : ''}
                 </div>`;
             }).join('');
+
+            const footerHtml = showChunkFooter ? `<div id="chunk-loader-footer" class="py-6 text-center"></div>` : '';
+            container.innerHTML = cardsHtml + footerHtml;
+            if (showChunkFooter) updateChunkLoaderUI();
             if (window.lucide) lucide.createIcons({ root: container });
         }
 
@@ -1690,7 +1793,7 @@
                 <button onclick="forcePost('${profileBot.id}')" class="flex-1 bg-brand text-white py-4 rounded-[20px] font-black text-xs uppercase cursor-pointer">Broadcast</button>
                 <button onclick="openBotSettings()" class="p-4 bg-gray-100 dark:bg-[#16181c] border border-gray-200 dark:border-[#2f3336] rounded-[20px] font-black text-xs uppercase cursor-pointer"><i data-lucide="settings" class="w-4 h-4"></i></button>
             ` : '';
-            renderFeed(posts, 'profile-feed-container');
+            renderFeed(posts, 'profile-feed-container', false);
             if (window.lucide) lucide.createIcons({ root: document.getElementById('profile-view') });
         }
 
