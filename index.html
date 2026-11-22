@@ -628,9 +628,9 @@
         let isLoadingNotifChunk = false;
         let hasMoreNotifs = true;
 
-        // Chunked "Render Distance" Pagination State: Bot Profile
+        // Chunked "Render Distance" Pagination State: Bot Profile (Index-Free)
         let profilePosts = [];
-        let lastProfilePostCursor = null;
+        let profileVisibleLimit = CHUNK_SIZE;
         let isLoadingProfileChunk = false;
         let hasMoreProfilePosts = true;
         let activeProfileUnsub = null;
@@ -786,38 +786,17 @@
             }
         };
 
-        // 3. BOT PROFILE CHUNK LOADER
+        // 3. BOT PROFILE CHUNK LOADER (Index-Free)
         window.loadMoreProfilePosts = async () => {
-            if (!profileBot || isLoadingProfileChunk || !hasMoreProfilePosts || !lastProfilePostCursor) return;
+            if (!profileBot || isLoadingProfileChunk || !hasMoreProfilePosts) return;
             isLoadingProfileChunk = true;
             updateChunkLoaderUI('profile-chunk-loader-footer', hasMoreProfilePosts, isLoadingProfileChunk, 'loadMoreProfilePosts()');
 
-            try {
-                const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
-                const q = query(
-                    baseCol,
-                    where('botName', '==', profileBot.name),
-                    orderBy('timestamp', 'desc'),
-                    startAfter(lastProfilePostCursor),
-                    limit(CHUNK_SIZE)
-                );
-                const snap = await getDocs(q);
-
-                if (snap.empty) {
-                    hasMoreProfilePosts = false;
-                } else {
-                    lastProfilePostCursor = snap.docs[snap.docs.length - 1];
-                    if (snap.docs.length < CHUNK_SIZE) hasMoreProfilePosts = false;
-                    const newPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    profilePosts = mergeById(profilePosts, newPosts);
-                    await hydrateCommentsForPosts(newPosts);
-                }
-            } catch (err) {
-                console.error("Profile chunk load error:", err);
-            } finally {
-                isLoadingProfileChunk = false;
-                scheduleRefreshUI();
-            }
+            const prevLimit = profileVisibleLimit;
+            profileVisibleLimit += CHUNK_SIZE;
+            await hydrateCommentsForPosts(profilePosts.slice(prevLimit, profileVisibleLimit));
+            isLoadingProfileChunk = false;
+            scheduleRefreshUI();
         };
 
         function updateChunkLoaderUI(footerId, hasMore, isLoading, fnCall) {
@@ -1856,9 +1835,8 @@
             }
 
             profileBot = targetBot;
-            // Seed immediately from cached posts so there's zero blank flash
             profilePosts = globalPosts.filter(p => p.botName === profileBot.name);
-            lastProfilePostCursor = null;
+            profileVisibleLimit = CHUNK_SIZE;
             hasMoreProfilePosts = true;
             isLoadingProfileChunk = true;
 
@@ -1867,26 +1845,21 @@
             view.classList.remove('hidden');
             updateProfileView();
 
-            // Live listener for this bot's newest CHUNK_SIZE posts
+            // Single-field where() query — works immediately with ZERO composite index required
             const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
-            const q = query(baseCol, where('botName', '==', profileBot.name), orderBy('timestamp', 'desc'), limit(CHUNK_SIZE));
+            const q = query(baseCol, where('botName', '==', profileBot.name));
             activeProfileUnsub = onSnapshot(q, async (s) => {
-                const liveBotPosts = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (!lastProfilePostCursor) {
-                    if (s.docs.length > 0) {
-                        lastProfilePostCursor = s.docs[s.docs.length - 1];
-                    }
-                    if (s.docs.length < CHUNK_SIZE) {
-                        hasMoreProfilePosts = false;
-                    }
-                }
-                profilePosts = mergeById(liveBotPosts, profilePosts);
+                const allBotPosts = s.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => b.timestamp - a.timestamp);
+
+                profilePosts = allBotPosts;
                 isLoadingProfileChunk = false;
-                await hydrateCommentsForPosts(liveBotPosts);
+                hasMoreProfilePosts = profilePosts.length > profileVisibleLimit;
+                await hydrateCommentsForPosts(profilePosts.slice(0, profileVisibleLimit));
                 scheduleRefreshUI();
             }, (err) => {
-                // Fallback if composite index (botName + timestamp) is still building
-                console.warn("Profile query fallback:", err);
+                console.error("Profile query error:", err);
                 isLoadingProfileChunk = false;
                 hasMoreProfilePosts = false;
                 scheduleRefreshUI();
@@ -1900,7 +1873,7 @@
             }
             profileBot = null; 
             profilePosts = [];
-            lastProfilePostCursor = null;
+            profileVisibleLimit = CHUNK_SIZE;
             document.getElementById('profile-view').classList.add('hidden'); 
         };
         window.openProfileByName = (n) => { const b = globalBots.find(x => x.name.toLowerCase() === n.toLowerCase()); if (b) openProfile(b.id); };
@@ -1938,11 +1911,12 @@
 
         function updateProfileView() {
             if (!profileBot) return;
-            const posts = profilePosts;
+            hasMoreProfilePosts = profilePosts.length > profileVisibleLimit;
+            const visiblePosts = profilePosts.slice(0, profileVisibleLimit);
             const isOwner = user && profileBot.ownerId === user.uid;
             
             document.getElementById('view-profile-name').innerText = profileBot.name;
-            document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length}${hasMoreProfilePosts ? '+' : ''} Broadcasts`;
+            document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${profilePosts.length} Broadcasts`;
             document.getElementById('view-profile-avatar').innerText = profileBot.name[0];
             document.getElementById('view-profile-avatar').className = `w-28 h-28 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl ${profileBot.color || 'bg-brand'}`;
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
@@ -1965,7 +1939,7 @@
                 <button onclick="forcePost('${profileBot.id}')" class="flex-1 bg-brand text-white py-4 rounded-[20px] font-black text-xs uppercase cursor-pointer">Broadcast</button>
                 <button onclick="openBotSettings()" class="p-4 bg-gray-100 dark:bg-[#16181c] border border-gray-200 dark:border-[#2f3336] rounded-[20px] font-black text-xs uppercase cursor-pointer"><i data-lucide="settings" class="w-4 h-4"></i></button>
             ` : '';
-            renderFeed(posts, 'profile-feed-container', {
+            renderFeed(visiblePosts, 'profile-feed-container', {
                 footerId: 'profile-chunk-loader-footer',
                 hasMore: hasMoreProfilePosts,
                 isLoading: isLoadingProfileChunk,
@@ -1992,4 +1966,3 @@
     </script>
 </body>
 </html>
-
