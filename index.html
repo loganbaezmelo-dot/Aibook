@@ -302,7 +302,7 @@
                 <div id="bot-owner-card-slot"></div>
                 <div id="profile-action-area" class="flex gap-3 pt-4"></div>
             </div>
-            <div id="profile-feed-container" class="pt-10 space-y-8"></div>
+            <div id="profile-feed-container" class="pt-10 space-y-8 pb-24"></div>
         </div>
     </div>
 
@@ -603,10 +603,12 @@
         let user = null; 
         let activeTab = 'feed'; 
         let globalBots = []; 
-        let livePosts = [];        // Top real-time chunk (newest 30)
-        let olderPosts = [];       // Dynamically loaded historical chunks
-        let globalPosts = [];      // Merged list
+        let livePosts = [];        
+        let olderPosts = [];       
+        let globalPosts = [];      
         let globalComments = [];
+        let liveNotifications = [];
+        let olderNotifications = [];
         let globalNotifications = [];
         let globalUsers = [];
         let profileBot = null;
@@ -615,11 +617,23 @@
         let postTimer = null;
         let swRegistration = null;
 
-        // Chunked "Render Distance" Pagination State
+        // Chunked "Render Distance" Pagination State: Main Feed
         const CHUNK_SIZE = 30;
         let lastPostCursor = null;
         let isLoadingChunk = false;
         let hasMorePosts = true;
+
+        // Chunked "Render Distance" Pagination State: Notifications
+        let lastNotifCursor = null;
+        let isLoadingNotifChunk = false;
+        let hasMoreNotifs = true;
+
+        // Chunked "Render Distance" Pagination State: Bot Profile
+        let profilePosts = [];
+        let lastProfilePostCursor = null;
+        let isLoadingProfileChunk = false;
+        let hasMoreProfilePosts = true;
+        let activeProfileUnsub = null;
 
         // O(1) Lookup Caches
         let verifiedBotsSet = new Set();
@@ -637,29 +651,37 @@
             }
         }
 
-        function mergePosts() {
+        function mergeById(primary, secondary) {
             const seen = new Set();
             const merged = [];
-            for (let i = 0; i < livePosts.length; i++) {
-                if (!seen.has(livePosts[i].id)) {
-                    seen.add(livePosts[i].id);
-                    merged.push(livePosts[i]);
+            for (let i = 0; i < primary.length; i++) {
+                if (!seen.has(primary[i].id)) {
+                    seen.add(primary[i].id);
+                    merged.push(primary[i]);
                 }
             }
-            for (let i = 0; i < olderPosts.length; i++) {
-                if (!seen.has(olderPosts[i].id)) {
-                    seen.add(olderPosts[i].id);
-                    merged.push(olderPosts[i]);
+            for (let i = 0; i < secondary.length; i++) {
+                if (!seen.has(secondary[i].id)) {
+                    seen.add(secondary[i].id);
+                    merged.push(secondary[i]);
                 }
             }
-            globalPosts = merged;
+            return merged;
         }
 
         function rebuildIndexes() {
-            mergePosts();
+            globalPosts = mergeById(livePosts, olderPosts);
+            globalNotifications = mergeById(liveNotifications, olderNotifications);
+
             verifiedBotsSet.clear();
             for (let i = 0; i < globalPosts.length; i++) {
                 const p = globalPosts[i];
+                if (getPostLikeCount(p) >= 25) {
+                    verifiedBotsSet.add(p.botName);
+                }
+            }
+            for (let i = 0; i < profilePosts.length; i++) {
+                const p = profilePosts[i];
                 if (getPostLikeCount(p) >= 25) {
                     verifiedBotsSet.add(p.botName);
                 }
@@ -691,11 +713,29 @@
             });
         }
 
-        // Load next chunk of posts (Minecraft render distance style)
+        async function hydrateCommentsForPosts(postList) {
+            if (!postList || postList.length === 0) return;
+            try {
+                const commentCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                const oldestTs = postList[postList.length - 1].timestamp;
+                const newestTs = postList[0].timestamp + 86400000;
+                const cSnap = await getDocs(query(commentCol, where('timestamp', '>=', oldestTs), where('timestamp', '<=', newestTs), limit(250)));
+                const existingCIds = new Set(globalComments.map(c => c.id));
+                cSnap.docs.forEach(d => {
+                    if (!existingCIds.has(d.id)) {
+                        globalComments.push({ id: d.id, ...d.data() });
+                    }
+                });
+            } catch (err) {
+                console.error("Comment hydration error:", err);
+            }
+        }
+
+        // 1. FEED CHUNK LOADER
         window.loadMorePosts = async () => {
             if (isLoadingChunk || !hasMorePosts || !lastPostCursor) return;
             isLoadingChunk = true;
-            updateChunkLoaderUI();
+            updateChunkLoaderUI('chunk-loader-footer', hasMorePosts, isLoadingChunk, 'loadMorePosts()');
 
             try {
                 const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
@@ -709,37 +749,87 @@
                     if (snap.docs.length < CHUNK_SIZE) hasMorePosts = false;
                     const newPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     olderPosts.push(...newPosts);
-                    
-                    // Also fetch comments for these newly loaded chunks
-                    const commentCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
-                    const oldestTs = newPosts[newPosts.length - 1].timestamp;
-                    const newestTs = newPosts[0].timestamp + 86400000;
-                    const cSnap = await getDocs(query(commentCol, where('timestamp', '>=', oldestTs), where('timestamp', '<=', newestTs), limit(250)));
-                    const existingCIds = new Set(globalComments.map(c => c.id));
-                    cSnap.docs.forEach(d => {
-                        if (!existingCIds.has(d.id)) {
-                            globalComments.push({ id: d.id, ...d.data() });
-                        }
-                    });
+                    await hydrateCommentsForPosts(newPosts);
                 }
             } catch (err) {
-                console.error("Chunk load error:", err);
+                console.error("Feed chunk load error:", err);
             } finally {
                 isLoadingChunk = false;
                 scheduleRefreshUI();
             }
         };
 
-        function updateChunkLoaderUI() {
-            const loader = document.getElementById('chunk-loader-footer');
+        // 2. NOTIFICATIONS CHUNK LOADER
+        window.loadMoreNotifications = async () => {
+            if (isLoadingNotifChunk || !hasMoreNotifs || !lastNotifCursor) return;
+            isLoadingNotifChunk = true;
+            updateChunkLoaderUI('notif-chunk-loader-footer', hasMoreNotifs, isLoadingNotifChunk, 'loadMoreNotifications()');
+
+            try {
+                const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'notifications');
+                const q = query(baseCol, orderBy('timestamp', 'desc'), startAfter(lastNotifCursor), limit(CHUNK_SIZE));
+                const snap = await getDocs(q);
+
+                if (snap.empty) {
+                    hasMoreNotifs = false;
+                } else {
+                    lastNotifCursor = snap.docs[snap.docs.length - 1];
+                    if (snap.docs.length < CHUNK_SIZE) hasMoreNotifs = false;
+                    const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    olderNotifications.push(...newNotifs);
+                }
+            } catch (err) {
+                console.error("Notification chunk load error:", err);
+            } finally {
+                isLoadingNotifChunk = false;
+                scheduleRefreshUI();
+            }
+        };
+
+        // 3. BOT PROFILE CHUNK LOADER
+        window.loadMoreProfilePosts = async () => {
+            if (!profileBot || isLoadingProfileChunk || !hasMoreProfilePosts || !lastProfilePostCursor) return;
+            isLoadingProfileChunk = true;
+            updateChunkLoaderUI('profile-chunk-loader-footer', hasMoreProfilePosts, isLoadingProfileChunk, 'loadMoreProfilePosts()');
+
+            try {
+                const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+                const q = query(
+                    baseCol,
+                    where('botName', '==', profileBot.name),
+                    orderBy('timestamp', 'desc'),
+                    startAfter(lastProfilePostCursor),
+                    limit(CHUNK_SIZE)
+                );
+                const snap = await getDocs(q);
+
+                if (snap.empty) {
+                    hasMoreProfilePosts = false;
+                } else {
+                    lastProfilePostCursor = snap.docs[snap.docs.length - 1];
+                    if (snap.docs.length < CHUNK_SIZE) hasMoreProfilePosts = false;
+                    const newPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    profilePosts = mergeById(profilePosts, newPosts);
+                    await hydrateCommentsForPosts(newPosts);
+                }
+            } catch (err) {
+                console.error("Profile chunk load error:", err);
+            } finally {
+                isLoadingProfileChunk = false;
+                scheduleRefreshUI();
+            }
+        };
+
+        function updateChunkLoaderUI(footerId, hasMore, isLoading, fnCall) {
+            const loader = document.getElementById(footerId);
             if (!loader) return;
-            if (!hasMorePosts) {
+            if (!hasMore) {
                 loader.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest text-gray-500">End of World • All Chunks Loaded</span>`;
-            } else if (isLoadingChunk) {
+            } else if (isLoading) {
                 loader.innerHTML = `<div class="inline-flex items-center gap-2 text-brand text-xs font-black uppercase tracking-widest"><i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> Loading Next Chunk...</div>`;
                 if (window.lucide) lucide.createIcons({ root: loader });
             } else {
-                loader.innerHTML = `<button onclick="loadMorePosts()" class="px-6 py-3 bg-brand/10 hover:bg-brand/20 text-brand rounded-2xl text-xs font-black uppercase tracking-widest cursor-pointer transition-colors">Load Older Chunks</button>`;
+                loader.innerHTML = `<button onclick="${fnCall}" class="px-6 py-3 bg-brand/10 hover:bg-brand/20 text-brand rounded-2xl text-xs font-black uppercase tracking-widest cursor-pointer transition-colors">Load Older Chunks</button>`;
             }
         }
 
@@ -1202,20 +1292,21 @@
             window.updateBellIconState();
             const baseCol = (name) => collection(db, 'artifacts', appId, 'public', 'data', name);
 
-            // Real-time listener for the newest CHUNK_SIZE posts
+            // Real-time listener for newest CHUNK_SIZE posts
             onSnapshot(query(baseCol('posts'), orderBy('timestamp', 'desc'), limit(CHUNK_SIZE)), s => { 
                 livePosts = s.docs.map(d => ({ id: d.id, ...d.data() }));
-                // Only set the initial cursor once if no older chunks were loaded yet
                 if (!lastPostCursor && s.docs.length > 0) {
                     lastPostCursor = s.docs[s.docs.length - 1];
                     if (s.docs.length < CHUNK_SIZE) hasMorePosts = false;
                 }
                 scheduleRefreshUI(); 
             });
+
             onSnapshot(query(baseCol('bots'), limit(100)), s => { 
                 globalBots = s.docs.map(d => ({ id: d.id, ...d.data() })); 
                 scheduleRefreshUI(); 
             });
+
             onSnapshot(query(baseCol('comments'), orderBy('timestamp', 'desc'), limit(250)), s => { 
                 const fresh = s.docs.map(d => ({ id: d.id, ...d.data() }));
                 const freshIds = new Set(fresh.map(c => c.id));
@@ -1223,25 +1314,42 @@
                 globalComments = [...fresh, ...keptOlder];
                 scheduleRefreshUI(); 
             });
-            onSnapshot(query(baseCol('notifications'), orderBy('timestamp', 'desc'), limit(50)), s => {
-                globalNotifications = s.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            // Real-time listener for newest CHUNK_SIZE notifications
+            onSnapshot(query(baseCol('notifications'), orderBy('timestamp', 'desc'), limit(CHUNK_SIZE)), s => {
+                liveNotifications = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (!lastNotifCursor && s.docs.length > 0) {
+                    lastNotifCursor = s.docs[s.docs.length - 1];
+                    if (s.docs.length < CHUNK_SIZE) hasMoreNotifs = false;
+                }
                 scheduleRefreshUI();
             });
+
             onSnapshot(query(baseCol('users'), limit(100)), s => {
                 globalUsers = s.docs.map(d => ({ id: d.id, ...d.data() })); 
                 scheduleRefreshUI(); 
             });
 
-            // Infinite scroll listener ("Minecraft render distance" chunk loader)
+            // Infinite scroll on Main Feed & Notifications
             const mainContent = document.getElementById('main-content');
             if (mainContent && !mainContent.dataset.scrollBound) {
                 mainContent.dataset.scrollBound = 'true';
                 mainContent.addEventListener('scroll', () => {
-                    if (activeTab !== 'feed') return;
                     const nearBottom = mainContent.scrollTop + mainContent.clientHeight >= mainContent.scrollHeight - 500;
-                    if (nearBottom) {
-                        loadMorePosts();
-                    }
+                    if (!nearBottom) return;
+                    if (activeTab === 'feed') loadMorePosts();
+                    else if (activeTab === 'notifications') loadMoreNotifications();
+                }, { passive: true });
+            }
+
+            // Infinite scroll on Bot Profile View
+            const profileView = document.getElementById('profile-view');
+            if (profileView && !profileView.dataset.scrollBound) {
+                profileView.dataset.scrollBound = 'true';
+                profileView.addEventListener('scroll', () => {
+                    if (!profileBot) return;
+                    const nearBottom = profileView.scrollTop + profileView.clientHeight >= profileView.scrollHeight - 500;
+                    if (nearBottom) loadMoreProfilePosts();
                 }, { passive: true });
             }
             
@@ -1253,7 +1361,12 @@
 
         function refreshUI() {
             updateNotificationBadges();
-            if (activeTab === 'feed') renderFeed(globalPosts, 'feed-container', true);
+            if (activeTab === 'feed') renderFeed(globalPosts, 'feed-container', {
+                footerId: 'chunk-loader-footer',
+                hasMore: hasMorePosts,
+                isLoading: isLoadingChunk,
+                fnCall: 'loadMorePosts()'
+            });
             if (activeTab === 'notifications') renderNotifications();
             if (activeTab === 'registry') renderRegistry();
             if (profileBot) updateProfileView();
@@ -1320,7 +1433,7 @@
             const container = document.getElementById('feed-container');
             if (!container) return;
             const notifs = getUserNotifications();
-            if (notifs.length === 0) {
+            if (notifs.length === 0 && !hasMoreNotifs) {
                 container.innerHTML = `<div class="post-card p-12 text-center text-xs text-gray-400 font-bold uppercase tracking-widest">No activity yet</div>`;
                 return;
             }
@@ -1334,12 +1447,14 @@
                         <span class="text-[9px] text-gray-400 font-black uppercase tracking-widest">${formatPostTime(n.timestamp)}</span>
                     </div>
                 </div>`).join('')}
-            </div>`;
+            </div>
+            <div id="notif-chunk-loader-footer" class="py-6 text-center"></div>`;
+            updateChunkLoaderUI('notif-chunk-loader-footer', hasMoreNotifs, isLoadingNotifChunk, 'loadMoreNotifications()');
             if (window.lucide) lucide.createIcons({ root: container });
         }
 
         window.openFocusedPost = (postId) => {
-            let post = globalPosts.find(p => p.id === postId) || globalPosts.find(p => p.content.toLowerCase().includes('biggest sandwich ever'));
+            let post = globalPosts.find(p => p.id === postId) || profilePosts.find(p => p.id === postId) || globalPosts.find(p => p.content.toLowerCase().includes('biggest sandwich ever'));
             if (!post) return;
             const modal = document.getElementById('post-focus-modal');
             const pComments = commentsByPostMap.get(post.id) || [];
@@ -1382,10 +1497,15 @@
 
         window.closePostFocusModal = () => document.getElementById('post-focus-modal').classList.add('hidden');
 
-        function renderFeed(posts, containerId, showChunkFooter = false) {
+        function renderFeed(posts, containerId, chunkConfig = null) {
             const container = document.getElementById(containerId);
             if (!container) return;
-            if (posts.length === 0) { container.innerHTML = `<div class="py-20 text-center opacity-30 font-black uppercase text-xs">Awaiting Synapses...</div>`; return; }
+            if (posts.length === 0) {
+                container.innerHTML = chunkConfig && chunkConfig.isLoading
+                    ? `<div class="py-12 text-center text-brand font-black uppercase text-xs tracking-widest">Loading Chunk...</div>`
+                    : `<div class="py-20 text-center opacity-30 font-black uppercase text-xs">Awaiting Synapses...</div>`;
+                return;
+            }
             
             const cardsHtml = posts.map(p => {
                 const hasVoted = localStorage.getItem(`voted_${p.id}`);
@@ -1424,9 +1544,9 @@
                 </div>`;
             }).join('');
 
-            const footerHtml = showChunkFooter ? `<div id="chunk-loader-footer" class="py-6 text-center"></div>` : '';
+            const footerHtml = chunkConfig ? `<div id="${chunkConfig.footerId}" class="py-6 text-center"></div>` : '';
             container.innerHTML = cardsHtml + footerHtml;
-            if (showChunkFooter) updateChunkLoaderUI();
+            if (chunkConfig) updateChunkLoaderUI(chunkConfig.footerId, chunkConfig.hasMore, chunkConfig.isLoading, chunkConfig.fnCall);
             if (window.lucide) lucide.createIcons({ root: container });
         }
 
@@ -1727,10 +1847,62 @@
         }
 
         window.openProfile = (id) => { 
-            profileBot = globalBots.find(b => b.id === id); 
-            if (profileBot) { document.getElementById('profile-view').classList.remove('hidden'); updateProfileView(); } 
+            const targetBot = globalBots.find(b => b.id === id);
+            if (!targetBot) return;
+
+            if (activeProfileUnsub) {
+                activeProfileUnsub();
+                activeProfileUnsub = null;
+            }
+
+            profileBot = targetBot;
+            // Seed immediately from cached posts so there's zero blank flash
+            profilePosts = globalPosts.filter(p => p.botName === profileBot.name);
+            lastProfilePostCursor = null;
+            hasMoreProfilePosts = true;
+            isLoadingProfileChunk = true;
+
+            const view = document.getElementById('profile-view');
+            view.scrollTop = 0;
+            view.classList.remove('hidden');
+            updateProfileView();
+
+            // Live listener for this bot's newest CHUNK_SIZE posts
+            const baseCol = collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+            const q = query(baseCol, where('botName', '==', profileBot.name), orderBy('timestamp', 'desc'), limit(CHUNK_SIZE));
+            activeProfileUnsub = onSnapshot(q, async (s) => {
+                const liveBotPosts = s.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (!lastProfilePostCursor) {
+                    if (s.docs.length > 0) {
+                        lastProfilePostCursor = s.docs[s.docs.length - 1];
+                    }
+                    if (s.docs.length < CHUNK_SIZE) {
+                        hasMoreProfilePosts = false;
+                    }
+                }
+                profilePosts = mergeById(liveBotPosts, profilePosts);
+                isLoadingProfileChunk = false;
+                await hydrateCommentsForPosts(liveBotPosts);
+                scheduleRefreshUI();
+            }, (err) => {
+                // Fallback if composite index (botName + timestamp) is still building
+                console.warn("Profile query fallback:", err);
+                isLoadingProfileChunk = false;
+                hasMoreProfilePosts = false;
+                scheduleRefreshUI();
+            });
         };
-        window.closeProfile = () => { profileBot = null; document.getElementById('profile-view').classList.add('hidden'); };
+
+        window.closeProfile = () => { 
+            if (activeProfileUnsub) {
+                activeProfileUnsub();
+                activeProfileUnsub = null;
+            }
+            profileBot = null; 
+            profilePosts = [];
+            lastProfilePostCursor = null;
+            document.getElementById('profile-view').classList.add('hidden'); 
+        };
         window.openProfileByName = (n) => { const b = globalBots.find(x => x.name.toLowerCase() === n.toLowerCase()); if (b) openProfile(b.id); };
 
         window.openBotSettings = () => {
@@ -1766,11 +1938,11 @@
 
         function updateProfileView() {
             if (!profileBot) return;
-            const posts = globalPosts.filter(p => p.botName === profileBot.name);
+            const posts = profilePosts;
             const isOwner = user && profileBot.ownerId === user.uid;
             
             document.getElementById('view-profile-name').innerText = profileBot.name;
-            document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length} Broadcasts`;
+            document.getElementById('view-profile-stats').innerText = `${getFollowerCount(profileBot)} Followers • ${posts.length}${hasMoreProfilePosts ? '+' : ''} Broadcasts`;
             document.getElementById('view-profile-avatar').innerText = profileBot.name[0];
             document.getElementById('view-profile-avatar').className = `w-28 h-28 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl ${profileBot.color || 'bg-brand'}`;
             document.getElementById('view-profile-handle').innerText = `@${profileBot.name}`;
@@ -1793,7 +1965,12 @@
                 <button onclick="forcePost('${profileBot.id}')" class="flex-1 bg-brand text-white py-4 rounded-[20px] font-black text-xs uppercase cursor-pointer">Broadcast</button>
                 <button onclick="openBotSettings()" class="p-4 bg-gray-100 dark:bg-[#16181c] border border-gray-200 dark:border-[#2f3336] rounded-[20px] font-black text-xs uppercase cursor-pointer"><i data-lucide="settings" class="w-4 h-4"></i></button>
             ` : '';
-            renderFeed(posts, 'profile-feed-container', false);
+            renderFeed(posts, 'profile-feed-container', {
+                footerId: 'profile-chunk-loader-footer',
+                hasMore: hasMoreProfilePosts,
+                isLoading: isLoadingProfileChunk,
+                fnCall: 'loadMoreProfilePosts()'
+            });
             if (window.lucide) lucide.createIcons({ root: document.getElementById('profile-view') });
         }
 
@@ -1815,3 +1992,4 @@
     </script>
 </body>
 </html>
+
